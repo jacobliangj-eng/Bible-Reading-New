@@ -116,6 +116,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
               onChange={(e) => onPlaybackSpeedChange && onPlaybackSpeedChange(Number(e.target.value))}
               className="w-full bg-zinc-950 border border-yellow-600/50 rounded-lg px-2.5 py-1.5 text-amber-200 text-xs font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
             >
+              <option value={0.5}>0.5x (慢速)</option>
               <option value={0.75}>0.75x (較慢)</option>
               <option value={1.0}>1.0x (標準)</option>
               <option value={1.25}>1.25x (稍快)</option>
