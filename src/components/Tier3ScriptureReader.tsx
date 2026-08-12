@@ -451,20 +451,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Auto-scroll active verse to the center of the viewport during playback or verse changes
-  useEffect(() => {
-    if (isPlaying && verseRefs.current[currentVerseIndex]) {
-      const targetElement = verseRefs.current[currentVerseIndex];
-      if (targetElement) {
-        targetElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest',
-        });
-      }
-    }
-  }, [currentVerseIndex, isPlaying, activeVerses]);
-
   // Handle Speech for a given verse index
   const speakVerse = useCallback(
     (index: number) => {
@@ -502,15 +488,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       }
 
       setCurrentVerseIndex(index);
-
-      // Scroll active verse to center immediately
-      if (verseRefs.current[index]) {
-        verseRefs.current[index]?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest',
-        });
-      }
 
       // Construct spoken text: 只有在每章第1節（index 0 且 verse === 1）時前置唸出「書卷名稱」與「第幾章」
       // 自第2節起（或非章首），不用唸書卷名與章節，只唸內文經文
@@ -556,14 +533,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       utterance.onstart = () => {
         setIsPlaying(true);
         setCurrentVerseIndex(index);
-        // Scroll verse into view
-        if (verseRefs.current[index]) {
-          verseRefs.current[index]?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest',
-          });
-        }
       };
 
       utterance.onend = () => {
