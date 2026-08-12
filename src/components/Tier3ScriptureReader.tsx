@@ -72,7 +72,37 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   const [targetChapter, setTargetChapter] = useState<number>(1);
   const [startVerseNum, setStartVerseNum] = useState<number>(1);
-  const [endVerseNum, setEndVerseNum] = useState<number>(5);
+  const [endVerseNum, setEndVerseNum] = useState<number>(31);
+  const [maxVersesForChapter, setMaxVersesForChapter] = useState<number>(31);
+
+  // Update verse bounds whenever targetChapter or book changes
+  useEffect(() => {
+    let isCancelled = false;
+    const updateVerseBounds = async () => {
+      try {
+        const chVerses = await fetchChapterVerses(
+          selectedBook.id,
+          bookName,
+          targetChapter,
+          selectedVersion
+        );
+        if (!isCancelled && chVerses && chVerses.length > 0) {
+          const totalCount = chVerses.length;
+          setMaxVersesForChapter(totalCount);
+          setStartVerseNum(1);
+          setEndVerseNum(totalCount);
+        }
+      } catch (err) {
+        console.warn('Error fetching chapter verses count:', err);
+      }
+    };
+
+    updateVerseBounds();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [targetChapter, selectedBook.id, bookName, selectedVersion]);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -308,8 +338,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           shouldAutoPlayRef.current = true;
           setViewChapter((prev) => prev + 1);
         } else if (isInfiniteLoopRef.current) {
-          shouldAutoPlayRef.current = true;
-          setViewChapter(minChapterRef.current);
+          if (viewChapterRef.current === minChapterRef.current) {
+            setCurrentVerseIndex(0);
+            setTimeout(() => {
+              speakVerse(0);
+            }, 100);
+          } else {
+            shouldAutoPlayRef.current = true;
+            setViewChapter(minChapterRef.current);
+          }
         } else {
           setIsPlaying(false);
         }
@@ -390,8 +427,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             shouldAutoPlayRef.current = true;
             setViewChapter((prev) => prev + 1);
           } else if (isInfiniteLoopRef.current) {
-            shouldAutoPlayRef.current = true;
-            setViewChapter(minChapterRef.current);
+            if (viewChapterRef.current === minChapterRef.current) {
+              setCurrentVerseIndex(0);
+              setTimeout(() => {
+                speakVerse(0);
+              }, 100);
+            } else {
+              shouldAutoPlayRef.current = true;
+              setViewChapter(minChapterRef.current);
+            }
           } else {
             setIsPlaying(false);
           }
@@ -643,7 +687,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   onChange={(e) => setStartVerseNum(Number(e.target.value))}
                   className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
                 >
-                  {Array.from({ length: 150 }, (_, i) => (
+                  {Array.from({ length: maxVersesForChapter }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
                       第 {i + 1} 節
                     </option>
@@ -657,7 +701,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   onChange={(e) => setEndVerseNum(Number(e.target.value))}
                   className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
                 >
-                  {Array.from({ length: 150 }, (_, i) => (
+                  {Array.from({ length: maxVersesForChapter }, (_, i) => (
                     <option key={i + 1} value={i + 1}>
                       第 {i + 1} 節
                     </option>
