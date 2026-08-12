@@ -4,7 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { BibleBook, BibleVersion, Tier } from './types';
+import { BibleBook, BibleVersion, Bookmark, ReadingMode, Tier } from './types';
+import { BIBLE_BOOKS } from './data/bibleBooks';
 import { Header } from './components/Header';
 import { Tier1VersionSelect } from './components/Tier1VersionSelect';
 import { Tier2BookSelect } from './components/Tier2BookSelect';
@@ -15,6 +16,10 @@ export default function App() {
   const [currentTier, setCurrentTier] = useState<Tier>('TIER1');
   const [selectedVersion, setSelectedVersion] = useState<BibleVersion>('CUV');
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
+  const [initialChapter, setInitialChapter] = useState<number>(1);
+  const [initialReadingMode, setInitialReadingMode] = useState<ReadingMode | undefined>(undefined);
+  const [initialStartVerse, setInitialStartVerse] = useState<number | undefined>(undefined);
+  const [initialEndVerse, setInitialEndVerse] = useState<number | undefined>(undefined);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Global Playback, Voice & Font Size State
@@ -30,7 +35,24 @@ export default function App() {
 
   const handleSelectBook = (book: BibleBook) => {
     setSelectedBook(book);
+    setInitialChapter(1);
+    setInitialReadingMode(undefined);
+    setInitialStartVerse(undefined);
+    setInitialEndVerse(undefined);
     setCurrentTier('TIER3');
+  };
+
+  const handleOpenBookmark = (bookmark: Bookmark) => {
+    const book = BIBLE_BOOKS.find((b) => b.id === bookmark.bookId);
+    if (book) {
+      setSelectedVersion(bookmark.version);
+      setSelectedBook(book);
+      setInitialChapter(bookmark.chapter);
+      setInitialReadingMode(bookmark.readingMode);
+      setInitialStartVerse(bookmark.startVerse);
+      setInitialEndVerse(bookmark.endVerse);
+      setCurrentTier('TIER3');
+    }
   };
 
   const handleGoHome = () => {
@@ -59,6 +81,7 @@ export default function App() {
           <Tier1VersionSelect
             selectedVersion={selectedVersion}
             onSelectVersion={handleSelectVersion}
+            onOpenBookmark={handleOpenBookmark}
           />
         )}
 
@@ -74,6 +97,10 @@ export default function App() {
           <Tier3ScriptureReader
             selectedBook={selectedBook}
             selectedVersion={selectedVersion}
+            initialChapter={initialChapter}
+            initialReadingMode={initialReadingMode}
+            initialStartVerse={initialStartVerse}
+            initialEndVerse={initialEndVerse}
             onGoBackToTier2={handleGoBackToTier2}
             onGoHome={handleGoHome}
             onOpenSettings={() => setIsSettingsOpen(true)}
@@ -85,6 +112,7 @@ export default function App() {
           />
         )}
       </main>
+
 
       {/* Settings Modal */}
       <AudioSettingsModal

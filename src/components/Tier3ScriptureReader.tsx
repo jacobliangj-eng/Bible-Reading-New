@@ -18,14 +18,20 @@ import {
   Copy,
   Check,
   X,
+  Bookmark,
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fetchChapterVerses } from '../services/bibleService';
+import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
   selectedVersion: BibleVersion;
+  initialChapter?: number;
+  initialReadingMode?: ReadingMode;
+  initialStartVerse?: number;
+  initialEndVerse?: number;
   onGoBackToTier2: () => void;
   onGoHome: () => void;
   onOpenSettings?: () => void;
@@ -39,6 +45,10 @@ interface Tier3ScriptureReaderProps {
 export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   selectedBook,
   selectedVersion,
+  initialChapter,
+  initialReadingMode,
+  initialStartVerse,
+  initialEndVerse,
   onGoBackToTier2,
   onGoHome,
   onOpenSettings,
@@ -55,7 +65,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // 1) 全卷重複朗讀 (BOOK)
   // 2) 重複朗讀幾章 (CHAPTERS)
   // 3) 重複朗讀某章內的某幾節 (VERSES)
-  const [readingMode, setReadingMode] = useState<ReadingMode>('CHAPTERS');
+  const [readingMode, setReadingMode] = useState<ReadingMode>(initialReadingMode ?? 'CHAPTERS');
 
   // Chapter & Verse selections
   const [startChapter, setStartChapter] = useState<number>(1);
@@ -64,15 +74,20 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   );
 
   useEffect(() => {
-    setStartChapter(1);
+    const initCh = initialChapter ?? 1;
+    setStartChapter(initCh);
     setEndChapter(selectedBook.chaptersCount);
-    setTargetChapter(1);
-    setViewChapter(1);
-  }, [selectedBook]);
+    setTargetChapter(initCh);
+    setViewChapter(initCh);
+    if (initialReadingMode) {
+      setReadingMode(initialReadingMode);
+    }
+  }, [selectedBook, initialChapter, initialReadingMode]);
 
-  const [targetChapter, setTargetChapter] = useState<number>(1);
-  const [startVerseNum, setStartVerseNum] = useState<number>(1);
-  const [endVerseNum, setEndVerseNum] = useState<number>(31);
+  const [targetChapter, setTargetChapter] = useState<number>(initialChapter ?? 1);
+
+  const [startVerseNum, setStartVerseNum] = useState<number>(initialStartVerse ?? 1);
+  const [endVerseNum, setEndVerseNum] = useState<number>(initialEndVerse ?? 31);
   const [maxVersesForChapter, setMaxVersesForChapter] = useState<number>(31);
 
   // Update verse bounds whenever targetChapter or book changes
@@ -89,8 +104,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         if (!isCancelled && chVerses && chVerses.length > 0) {
           const totalCount = chVerses.length;
           setMaxVersesForChapter(totalCount);
-          setStartVerseNum(1);
-          setEndVerseNum(totalCount);
+          if (initialStartVerse !== undefined && initialEndVerse !== undefined) {
+            setStartVerseNum(Math.min(initialStartVerse, totalCount));
+            setEndVerseNum(Math.min(initialEndVerse, totalCount));
+          } else {
+            setStartVerseNum(1);
+            setEndVerseNum(totalCount);
+          }
         }
       } catch (err) {
         console.warn('Error fetching chapter verses count:', err);
@@ -102,7 +122,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [targetChapter, selectedBook.id, bookName, selectedVersion]);
+  }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialStartVerse, initialEndVerse]);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -133,6 +153,60 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // Currently displayed chapter number (page by page)
   const [viewChapter, setViewChapter] = useState<number>(1);
 
+  // Bookmark state & toggle
+  const isVerseMode = readingMode === 'VERSES';
+  const sV = Math.min(startVerseNum, endVerseNum);
+  const eV = Math.max(startVerseNum, endVerseNum);
+
+  const [isBookmarkedState, setIsBookmarkedState] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsBookmarkedState(
+      isBookmarked(
+        selectedVersion,
+        selectedBook.id,
+        viewChapter,
+        isVerseMode ? 'VERSES' : undefined,
+        isVerseMode ? sV : undefined,
+        isVerseMode ? eV : undefined
+      )
+    );
+  }, [selectedVersion, selectedBook.id, viewChapter, readingMode, sV, eV]);
+
+  const handleToggleBookmark = () => {
+    const bookmarkId = getBookmarkId({
+      version: selectedVersion,
+      bookId: selectedBook.id,
+      chapter: viewChapter,
+      readingMode: isVerseMode ? 'VERSES' : undefined,
+      startVerse: isVerseMode ? sV : undefined,
+      endVerse: isVerseMode ? eV : undefined,
+    });
+
+    if (isBookmarkedState) {
+      removeBookmark(bookmarkId);
+      setIsBookmarkedState(false);
+    } else {
+      let preview = '';
+      if (activeVerses.length > 0) {
+        const first = activeVerses[0];
+        preview = `第 ${first.verse} 節: ${first.text.slice(0, 50)}...`;
+      }
+      saveBookmark({
+        bookId: selectedBook.id,
+        bookName: bookName,
+        chapter: viewChapter,
+        version: selectedVersion,
+        previewText: preview,
+        readingMode: isVerseMode ? 'VERSES' : undefined,
+        startVerse: isVerseMode ? sV : undefined,
+        endVerse: isVerseMode ? eV : undefined,
+      });
+      setIsBookmarkedState(true);
+    }
+  };
+
+
   // Swipe gesture touch positions
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
@@ -160,11 +234,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   // Sync viewChapter within valid min/max bounds when readingMode or chapter selectors change
   useEffect(() => {
-    if (readingMode === 'BOOK') {
-      setViewChapter(1);
-    } else if (readingMode === 'CHAPTERS') {
+    if (readingMode === 'CHAPTERS') {
       const sCh = Math.min(startChapter, endChapter);
-      setViewChapter(sCh);
+      const eCh = Math.max(startChapter, endChapter);
+      if (viewChapter < sCh || viewChapter > eCh) {
+        setViewChapter(sCh);
+      }
     } else if (readingMode === 'VERSES') {
       setViewChapter(targetChapter);
     }
@@ -773,11 +848,39 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onTouchEnd={handleTouchEnd}
       >
         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pb-2.5 border-b border-yellow-800/40">
-          <div className="flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-amber-400" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
             <h3 className="text-base font-bold text-gold-bright">
               {bookName} 第 {viewChapter} 章
             </h3>
+            <button
+              onClick={handleToggleBookmark}
+              className={`ml-1 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
+                isBookmarkedState
+                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+              }`}
+              title={
+                isBookmarkedState
+                  ? isVerseMode
+                    ? `移除第 ${sV}~${eV} 節書籤`
+                    : '移除此章書籤'
+                  : isVerseMode
+                  ? `加第 ${sV}~${eV} 節至書籤`
+                  : '加到我的書籤'
+              }
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
+              <span>
+                {isBookmarkedState
+                  ? isVerseMode
+                    ? `已加入 (第 ${sV}~${eV} 節)`
+                    : '已加入書籤'
+                  : isVerseMode
+                  ? `加書籤 (第 ${sV}~${eV} 節)`
+                  : '加書籤'}
+              </span>
+            </button>
           </div>
 
           {/* Chapter Navigation Bar */}

@@ -53,3 +53,16 @@ export interface ReadingConfig {
 }
 
 export type Tier = 'TIER1' | 'TIER2' | 'TIER3';
+
+export interface Bookmark {
+  id: string; // e.g. `${version}_${bookId}_${chapter}` or `${version}_${bookId}_${chapter}_v${startVerse}-${endVerse}`
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  version: BibleVersion;
+  savedAt: number;
+  previewText?: string;
+  startVerse?: number;
+  endVerse?: number;
+  readingMode?: ReadingMode;
+}
