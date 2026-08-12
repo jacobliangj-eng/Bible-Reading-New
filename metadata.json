@@ -1,0 +1,6 @@
+{
+  "name": "聖經經文朗讀",
+  "description": "提供中文和合本、英文 KJV 及法文 Segond 版本的聖經朗讀與研讀，黑金奢華介面設計。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
