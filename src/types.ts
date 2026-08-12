@@ -66,3 +66,15 @@ export interface Bookmark {
   endVerse?: number;
   readingMode?: ReadingMode;
 }
+
+export interface PlaylistItem {
+  id: string; // unique ID
+  version: BibleVersion;
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  readingMode?: ReadingMode; // 'CHAPTERS' or 'VERSES'
+  startVerse?: number;
+  endVerse?: number;
+  createdAt: number;
+}

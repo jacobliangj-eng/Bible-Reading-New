@@ -130,4 +130,77 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Night Mode Styles (夜間深藍護眼模式) */
+body.night-mode {
+  background-color: #0b1329 !important;
+  color: #cbd5e1 !important;
+}
+
+body.night-mode .bg-black {
+  background-color: #0b1329 !important;
+}
+
+body.night-mode .bg-zinc-950 {
+  background-color: #0f172a !important;
+}
+
+body.night-mode .bg-zinc-900 {
+  background-color: #1e293b !important;
+}
+
+body.night-mode .bg-yellow-950 {
+  background-color: #1e1b4b !important;
+}
+
+body.night-mode .gold-card {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  box-shadow: 0 4px 20px rgba(2, 6, 23, 0.8), inset 0 1px 0 rgba(165, 180, 252, 0.1) !important;
+}
+
+body.night-mode .gold-card-hover:hover {
+  border-color: rgba(129, 140, 248, 0.6) !important;
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.25) !important;
+}
+
+body.night-mode .text-gold-gradient {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 50%, #94a3b8 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+body.night-mode .text-amber-100 {
+  color: #cbd5e1 !important;
+}
+
+body.night-mode .text-amber-200 {
+  color: #94a3b8 !important;
+}
+
+body.night-mode .text-amber-300 {
+  color: #a5b4fc !important;
+}
+
+body.night-mode .text-yellow-400 {
+  color: #818cf8 !important;
+}
+
+body.night-mode .active-verse {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.22) 0%, rgba(67, 56, 202, 0.12) 100%) !important;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2) !important;
+}
+
+body.night-mode ::-webkit-scrollbar-track {
+  background: #0b1329;
+}
+
+body.night-mode ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+}
+
+body.night-mode ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
 }

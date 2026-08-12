@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Volume2, Settings, Sparkles, Check } from 'lucide-react';
+import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders } from 'lucide-react';
 import { BibleVersion } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 
@@ -9,10 +9,14 @@ interface AudioSettingsModalProps {
   onClose: () => void;
   playbackSpeed?: number;
   onPlaybackSpeedChange?: (speed: number) => void;
+  speechPitch?: number;
+  onSpeechPitchChange?: (pitch: number) => void;
   fontSize?: 'normal' | 'large' | 'xlarge';
   onFontSizeChange?: (size: 'normal' | 'large' | 'xlarge') => void;
   selectedVoiceName?: string;
   onVoiceNameChange?: (voiceName: string) => void;
+  isNightMode?: boolean;
+  onNightModeChange?: (isNightMode: boolean) => void;
 }
 
 export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
@@ -21,10 +25,14 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onClose,
   playbackSpeed = 1.0,
   onPlaybackSpeedChange,
+  speechPitch = 1.0,
+  onSpeechPitchChange,
   fontSize = 'large',
   onFontSizeChange,
   selectedVoiceName = '',
   onVoiceNameChange,
+  isNightMode = false,
+  onNightModeChange,
 }) => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const versionInfo = VERSIONS[selectedVersion];
@@ -63,6 +71,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
     const utterance = new SpeechSynthesisUtterance(sampleText);
     utterance.lang = versionInfo.langCode;
     utterance.rate = playbackSpeed;
+    utterance.pitch = speechPitch;
 
     if (selectedVoiceName) {
       const v = voices.find((v) => v.name === selectedVoiceName);
@@ -141,6 +150,80 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
               <option value="xlarge">特大 (超大)</option>
             </select>
           </div>
+        </div>
+
+        {/* 語音音調 (Pitch / 粗細) 滑桿 */}
+        <div className="bg-zinc-900/90 p-3.5 rounded-xl border border-yellow-800/50 space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-amber-200 flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+              <span>語音音調 (Pitch / 聲音粗細)</span>
+            </label>
+            <span className="text-xs font-mono font-bold text-amber-300 bg-yellow-950/80 px-2 py-0.5 rounded border border-yellow-700/50">
+              {speechPitch < 1.0 ? `${speechPitch.toFixed(1)}x (低沉)` : speechPitch === 1.0 ? '1.0x (標準)' : `${speechPitch.toFixed(1)}x (高亢)`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[11px] font-bold text-zinc-400 shrink-0">低沉 (粗)</span>
+            <input
+              type="range"
+              min={0.5}
+              max={1.5}
+              step={0.1}
+              value={speechPitch}
+              onChange={(e) => onSpeechPitchChange && onSpeechPitchChange(Number(e.target.value))}
+              className="w-full accent-amber-400 cursor-pointer h-1.5 bg-zinc-950 rounded-lg"
+            />
+            <span className="text-[11px] font-bold text-zinc-400 shrink-0">高亢 (細)</span>
+          </div>
+          <p className="text-[10px] text-zinc-400 leading-tight">
+            往左可使朗讀聲更加低沉厚重，往右則使聲音較高亢細緻。
+          </p>
+        </div>
+
+        {/* 夜間護眼模式 (Night Mode) 切換開關 */}
+        <div className="bg-zinc-900/90 p-3.5 rounded-xl border border-yellow-800/50 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                isNightMode
+                  ? 'bg-indigo-900/80 text-indigo-200 border border-indigo-500/60 shadow-inner'
+                  : 'bg-yellow-950 text-amber-400 border border-yellow-700/50'
+              }`}
+            >
+              <Moon className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-amber-200">夜間模式 (Night Mode)</span>
+                {isNightMode && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-indigo-900/90 text-indigo-200 border border-indigo-500/40">
+                    深藍低對比已開啟
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-tight">
+                主色調改為深藍色並降低對比度，減少夜間閱讀時的眼睛疲勞
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNightModeChange && onNightModeChange(!isNightMode)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              isNightMode ? 'bg-indigo-600' : 'bg-zinc-700'
+            }`}
+            role="switch"
+            aria-checked={isNightMode}
+            title="開啟/關閉夜間深藍護眼模式"
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                isNightMode ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Info Box */}
