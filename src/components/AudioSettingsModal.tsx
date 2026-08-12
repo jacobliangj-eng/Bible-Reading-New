@@ -21,7 +21,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onClose,
   playbackSpeed = 1.0,
   onPlaybackSpeedChange,
-  fontSize = 'normal',
+  fontSize = 'large',
   onFontSizeChange,
   selectedVoiceName = '',
   onVoiceNameChange,

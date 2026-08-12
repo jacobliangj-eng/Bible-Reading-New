@@ -19,7 +19,7 @@ export default function App() {
 
   // Global Playback, Voice & Font Size State
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
-  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
 
   // Nav Handlers

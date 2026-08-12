@@ -109,7 +109,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [currentVerseIndex, setCurrentVerseIndex] = useState<number>(0);
   const [localPlaybackSpeed, setLocalPlaybackSpeed] = useState<number>(1.0);
   const [isInfiniteLoop, setIsInfiniteLoop] = useState<boolean>(false);
-  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
   const playbackSpeed = propSpeed ?? localPlaybackSpeed;
   const setPlaybackSpeed = propSetSpeed ?? setLocalPlaybackSpeed;
