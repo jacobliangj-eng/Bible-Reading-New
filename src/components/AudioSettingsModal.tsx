@@ -53,11 +53,11 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
 
-    let sampleText = '神說：要有光，就有了光。';
+    let sampleText = '創世記第1章。神說：要有光，就有了光。';
     if (selectedVersion === 'KJV') {
-      sampleText = 'In the beginning God created the heaven and the earth.';
+      sampleText = 'Genesis, Chapter 1. In the beginning God created the heaven and the earth.';
     } else if (selectedVersion === 'LBS') {
-      sampleText = 'Au commencement, Dieu créa les cieux et la terre.';
+      sampleText = 'Genèse, Chapitre 1. Au commencement, Dieu créa les cieux et la terre.';
     }
 
     const utterance = new SpeechSynthesisUtterance(sampleText);

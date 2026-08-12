@@ -327,8 +327,22 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         return;
       }
 
-      // Construct spoken text
-      const speechText = `${verseObj.text}`;
+      // Construct spoken text: 只有在每章第1節（index 0 且 verse === 1）時前置唸出「書卷名稱」與「第幾章」
+      // 自第2節起（或非章首），不用唸書卷名與章節，只唸內文經文
+      const isChapterStart = index === 0 && verseObj.verse === 1;
+      let speechText = '';
+      if (isChapterStart) {
+        if (selectedVersion === 'KJV') {
+          speechText = `${bookName}, Chapter ${verseObj.chapter}. ${verseObj.text}`;
+        } else if (selectedVersion === 'LBS') {
+          speechText = `${bookName}, Chapitre ${verseObj.chapter}. ${verseObj.text}`;
+        } else {
+          speechText = `${bookName}第${verseObj.chapter}章。${verseObj.text}`;
+        }
+      } else {
+        speechText = verseObj.text;
+      }
+
       const utterance = new SpeechSynthesisUtterance(speechText);
 
       // Set Language
@@ -395,7 +409,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       currentUtteranceRef.current = utterance;
       synthRef.current.speak(utterance);
     },
-    [versionInfo.langCode]
+    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName]
   );
 
   // Play button handler (1. 按下「朗讀」鍵可自動朗讀)
