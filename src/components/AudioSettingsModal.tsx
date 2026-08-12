@@ -62,12 +62,19 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="gold-card p-6 rounded-2xl max-w-md w-full relative border border-yellow-500/50 space-y-5">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="gold-card p-4 sm:p-6 rounded-2xl max-w-md w-full relative border border-yellow-500/50 space-y-4 sm:space-y-5 max-h-[88vh] overflow-y-auto my-auto shadow-2xl"
+      >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-400 hover:text-amber-300 p-1 rounded-lg hover:bg-zinc-800"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 text-zinc-400 hover:text-amber-300 p-2 rounded-xl bg-zinc-900/80 border border-yellow-700/40 hover:bg-zinc-800 active:scale-95 transition-all touch-manipulation z-10"
+          title="關閉語音設定"
         >
           <X className="w-5 h-5" />
         </button>
@@ -171,19 +178,19 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
           </select>
         </div>
 
-        {/* Test Speech Button */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-yellow-900/40">
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-yellow-900/40">
           <button
             onClick={handleTestVoice}
-            className="btn-gold-outline px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
+            className="btn-gold-outline px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-transform touch-manipulation cursor-pointer"
           >
             <Volume2 className="w-4 h-4" />
-            <span>試聽朗讀範例</span>
+            <span>試聽範例</span>
           </button>
 
           <button
             onClick={onClose}
-            className="btn-gold px-4 py-2 rounded-xl text-xs font-bold"
+            className="btn-gold px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold active:scale-95 transition-transform touch-manipulation cursor-pointer shadow-md shadow-amber-500/20"
           >
             確定完成
           </button>

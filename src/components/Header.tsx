@@ -115,10 +115,11 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="p-1.5 rounded-lg bg-zinc-900 border border-yellow-600/40 text-amber-400 hover:text-yellow-200 hover:bg-yellow-950/40 transition-colors"
+              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-yellow-600/50 text-amber-300 hover:text-yellow-100 active:scale-95 transition-all flex items-center gap-1.5 shadow-sm touch-manipulation cursor-pointer"
               title="朗讀語音設定"
             >
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-semibold text-amber-200">設定</span>
             </button>
           )}
         </div>
