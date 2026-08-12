@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-yellow-300 via-amber-500 to-yellow-700 p-[1px] shadow-md shadow-amber-500/20 group-hover:shadow-amber-400/40 transition-shadow">
             <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <BookOpen className="w-4 h-4 text-amber-400 animate-spin-slow group-hover:scale-110 transition-transform" />
             </div>
           </div>
 

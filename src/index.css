@@ -91,6 +91,19 @@
       text-decoration-color: #fef08a;
     }
   }
+
+  @keyframes slowSpin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin-slow {
+    animation: slowSpin 6s linear infinite;
+  }
 }
 
 /* Custom Gold Scrollbar */
