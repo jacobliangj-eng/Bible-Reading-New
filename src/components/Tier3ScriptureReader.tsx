@@ -33,6 +33,7 @@ interface Tier3ScriptureReaderProps {
   setPlaybackSpeed?: (speed: number) => void;
   fontSize?: 'normal' | 'large' | 'xlarge';
   setFontSize?: (size: 'normal' | 'large' | 'xlarge') => void;
+  selectedVoiceName?: string;
 }
 
 export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
@@ -45,6 +46,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   setPlaybackSpeed: propSetSpeed,
   fontSize: propFontSize,
   setFontSize: propSetFontSize,
+  selectedVoiceName = '',
 }) => {
   const versionInfo = VERSIONS[selectedVersion];
   const bookName = selectedBook.name[selectedVersion];
@@ -96,6 +98,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     index: number;
   } | null>(null);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  const lastVerseTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
 
   // Currently displayed chapter number (page by page)
   const [viewChapter, setViewChapter] = useState<number>(1);
@@ -335,10 +338,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       // Find matching voice if available
       const voices = synthRef.current.getVoices();
       if (voices.length > 0) {
-        const targetLang = versionInfo.langCode;
-        const matchingVoice = voices.find((v) =>
-          v.lang.toLowerCase().startsWith(targetLang.slice(0, 2).toLowerCase())
-        );
+        let matchingVoice: SpeechSynthesisVoice | undefined;
+        if (selectedVoiceName) {
+          matchingVoice = voices.find((v) => v.name === selectedVoiceName);
+        }
+        if (!matchingVoice) {
+          const targetLang = versionInfo.langCode;
+          matchingVoice = voices.find((v) =>
+            v.lang.toLowerCase().startsWith(targetLang.slice(0, 2).toLowerCase())
+          );
+        }
         if (matchingVoice) {
           utterance.voice = matchingVoice;
         }
@@ -454,8 +463,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Click on specific verse to trigger copy prompt dialog (點選經文不自動朗讀，顯示是否複製)
-  const handleSelectVerse = (v: Verse, idx: number) => {
+  // Open copy dialog modal
+  const handleOpenCopyModal = (v: Verse, idx: number) => {
     setSelectedCopyVerse({
       chapter: v.chapter,
       verse: v.verse,
@@ -463,6 +472,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       index: idx,
     });
     setCopySuccess(false);
+  };
+
+  // Double click / double tap handler for verses (連續點擊兩次經文才會觸發，防止滑動或單擊誤觸)
+  const handleVerseClick = (v: Verse, idx: number) => {
+    const now = Date.now();
+    const verseKey = `${v.chapter}:${v.verse}`;
+    if (lastVerseTapRef.current.id === verseKey && now - lastVerseTapRef.current.time < 450) {
+      handleOpenCopyModal(v, idx);
+      lastVerseTapRef.current = { id: '', time: 0 };
+    } else {
+      lastVerseTapRef.current = { id: verseKey, time: now };
+    }
   };
 
   // Copy verse handler
@@ -760,8 +781,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   ref={(el) => {
                     verseRefs.current[idx] = el;
                   }}
-                  onClick={() => handleSelectVerse(v, idx)}
-                  className={`py-0.5 px-2 md:py-1 md:px-2.5 rounded-md cursor-pointer transition-all duration-150 relative group ${
+                  onClick={() => handleVerseClick(v, idx)}
+                  className={`py-0.5 px-2 md:py-1 md:px-2.5 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
                     isActive
                       ? 'active-verse bg-yellow-950/70 border border-yellow-500/60 shadow-sm shadow-amber-500/10'
                       : 'bg-zinc-900/40 border border-zinc-800/70 hover:border-yellow-600/40 hover:bg-zinc-900/80'

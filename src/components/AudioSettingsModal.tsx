@@ -11,6 +11,8 @@ interface AudioSettingsModalProps {
   onPlaybackSpeedChange?: (speed: number) => void;
   fontSize?: 'normal' | 'large' | 'xlarge';
   onFontSizeChange?: (size: 'normal' | 'large' | 'xlarge') => void;
+  selectedVoiceName?: string;
+  onVoiceNameChange?: (voiceName: string) => void;
 }
 
 export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
@@ -21,9 +23,10 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onPlaybackSpeedChange,
   fontSize = 'normal',
   onFontSizeChange,
+  selectedVoiceName = '',
+  onVoiceNameChange,
 }) => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
   const versionInfo = VERSIONS[selectedVersion];
 
   useEffect(() => {
@@ -39,6 +42,13 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleCloseModal = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    onClose();
+  };
+
   const handleTestVoice = () => {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
@@ -46,12 +56,13 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
     let sampleText = '神說：要有光，就有了光。';
     if (selectedVersion === 'KJV') {
       sampleText = 'In the beginning God created the heaven and the earth.';
-    } else if (selectedVersion === 'LSG') {
+    } else if (selectedVersion === 'LBS') {
       sampleText = 'Au commencement, Dieu créa les cieux et la terre.';
     }
 
     const utterance = new SpeechSynthesisUtterance(sampleText);
     utterance.lang = versionInfo.langCode;
+    utterance.rate = playbackSpeed;
 
     if (selectedVoiceName) {
       const v = voices.find((v) => v.name === selectedVoiceName);
@@ -63,20 +74,22 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
 
   return (
     <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
+      onClick={handleCloseModal}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in touch-manipulation cursor-pointer"
+      role="dialog"
+      aria-modal="true"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="gold-card p-4 sm:p-6 rounded-2xl max-w-md w-full relative border border-yellow-500/50 space-y-4 sm:space-y-5 max-h-[88vh] overflow-y-auto my-auto shadow-2xl"
+        className="gold-card p-4 sm:p-6 rounded-2xl max-w-md w-full relative border border-yellow-500/50 space-y-4 sm:space-y-5 max-h-[88vh] overflow-y-auto my-auto shadow-2xl cursor-default"
       >
         {/* Close Button */}
         <button
-          onClick={onClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 text-zinc-400 hover:text-amber-300 p-2 rounded-xl bg-zinc-900/80 border border-yellow-700/40 hover:bg-zinc-800 active:scale-95 transition-all touch-manipulation z-10"
+          onClick={handleCloseModal}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 text-zinc-400 hover:text-amber-300 p-2 rounded-xl bg-zinc-900/90 border border-yellow-700/50 hover:bg-zinc-800 active:scale-95 transition-all touch-manipulation z-20 cursor-pointer"
           title="關閉語音設定"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5 text-amber-300" />
         </button>
 
         <div className="flex items-center gap-3">
@@ -166,8 +179,8 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
           </label>
           <select
             value={selectedVoiceName}
-            onChange={(e) => setSelectedVoiceName(e.target.value)}
-            className="w-full bg-zinc-900 border border-yellow-600/50 rounded-xl px-3 py-2 text-xs text-amber-200 focus:outline-none focus:border-amber-400"
+            onChange={(e) => onVoiceNameChange && onVoiceNameChange(e.target.value)}
+            className="w-full bg-zinc-900 border border-yellow-600/50 rounded-xl px-3 py-2 text-xs text-amber-200 focus:outline-none focus:border-amber-400 cursor-pointer"
           >
             <option value="">-- 自動預設最佳語音 --</option>
             {voices.map((v) => (
@@ -189,7 +202,7 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
           </button>
 
           <button
-            onClick={onClose}
+            onClick={handleCloseModal}
             className="btn-gold px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold active:scale-95 transition-transform touch-manipulation cursor-pointer shadow-md shadow-amber-500/20"
           >
             確定完成

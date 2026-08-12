@@ -17,9 +17,10 @@ export default function App() {
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
-  // Global Playback & Font Size State
+  // Global Playback, Voice & Font Size State
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
 
   // Nav Handlers
   const handleSelectVersion = (version: BibleVersion) => {
@@ -80,11 +81,10 @@ export default function App() {
             setPlaybackSpeed={setPlaybackSpeed}
             fontSize={fontSize}
             setFontSize={setFontSize}
+            selectedVoiceName={selectedVoiceName}
           />
         )}
       </main>
-
-
 
       {/* Settings Modal */}
       <AudioSettingsModal
@@ -95,6 +95,8 @@ export default function App() {
         onPlaybackSpeedChange={setPlaybackSpeed}
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
+        selectedVoiceName={selectedVoiceName}
+        onVoiceNameChange={setSelectedVoiceName}
       />
     </div>
   );
