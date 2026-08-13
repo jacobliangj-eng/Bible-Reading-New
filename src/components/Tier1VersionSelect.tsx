@@ -188,14 +188,6 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
             <span className="text-[10px] text-yellow-500/80 font-normal ml-0.5"></span>
           </button>
 
-          <div>
-            {isSpeaking && (
-              <span className="inline-flex items-center gap-1.5 font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-400/60 animate-pulse text-xs">
-                <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
-                <span>朗讀中... (點擊經文停止)</span>
-              </span>
-            )}
-          </div>
         </div>
 
         {/* 經文內容區塊：點擊經文本身會自動朗讀 */}
