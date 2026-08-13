@@ -19,13 +19,11 @@ import {
   Check,
   X,
   Bookmark,
-  ListMusic,
 } from 'lucide-react';
-import { BibleBook, BibleVersion, PlaylistItem, ReadingMode, Verse } from '../types';
+import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fetchChapterVerses } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
-import { addToPlaylist } from '../services/playlistService';
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
@@ -43,11 +41,6 @@ interface Tier3ScriptureReaderProps {
   fontSize?: 'normal' | 'large' | 'xlarge';
   setFontSize?: (size: 'normal' | 'large' | 'xlarge') => void;
   selectedVoiceName?: string;
-  playlistItems?: PlaylistItem[];
-  playlistIndex?: number | null;
-  onPlayNextPlaylistItem?: () => void;
-  onPlayPrevPlaylistItem?: () => void;
-  onExitPlaylistMode?: () => void;
   autoStartPlayback?: boolean;
 }
 
@@ -67,20 +60,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   fontSize: propFontSize,
   setFontSize: propSetFontSize,
   selectedVoiceName = '',
-  playlistItems,
-  playlistIndex,
-  onPlayNextPlaylistItem,
-  onPlayPrevPlaylistItem,
-  onExitPlaylistMode,
   autoStartPlayback = false,
 }) => {
   const versionInfo = VERSIONS[selectedVersion];
   const bookName = selectedBook.name[selectedVersion];
-
-  const onPlayNextPlaylistItemRef = useRef(onPlayNextPlaylistItem);
-  useEffect(() => {
-    onPlayNextPlaylistItemRef.current = onPlayNextPlaylistItem;
-  }, [onPlayNextPlaylistItem]);
 
   // Mode Selection:
   // 1) 全卷重複朗讀 (BOOK)
@@ -114,23 +97,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       shouldAutoPlayRef.current = true;
     }
   }, [autoStartPlayback, selectedBook, selectedVersion, initialChapter]);
-
-  const [addedToPlaylistToast, setAddedToPlaylistToast] = useState(false);
-
-  const handleAddToPlaylist = () => {
-    const isVerseMode = readingMode === 'VERSES';
-    addToPlaylist({
-      version: selectedVersion,
-      bookId: selectedBook.id,
-      bookName,
-      chapter: viewChapter,
-      readingMode,
-      startVerse: isVerseMode ? Math.min(startVerseNum, endVerseNum) : undefined,
-      endVerse: isVerseMode ? Math.max(startVerseNum, endVerseNum) : undefined,
-    });
-    setAddedToPlaylistToast(true);
-    setTimeout(() => setAddedToPlaylistToast(false), 2000);
-  };
 
 
   // Update verse bounds whenever targetChapter or book changes
@@ -556,11 +522,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               setViewChapter(minChapterRef.current);
             }
           } else {
-            if (onPlayNextPlaylistItemRef.current) {
-              onPlayNextPlaylistItemRef.current();
-            } else {
-              setIsPlaying(false);
-            }
+            setIsPlaying(false);
           }
         }
       };
@@ -711,67 +673,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-3 md:py-4 space-y-3">
-      {/* Toast Notification */}
-      {addedToPlaylistToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold text-xs rounded-full shadow-lg flex items-center gap-1.5 animate-bounce">
-          <Check className="w-4 h-4 stroke-[3]" />
-          <span>已成功加入我的播放清單！</span>
-        </div>
-      )}
-
-      {/* Playlist Continuous Playback Control Banner */}
-      {playlistIndex !== undefined && playlistIndex !== null && playlistItems && playlistItems.length > 0 && (
-        <div className="p-3.5 rounded-xl bg-gradient-to-r from-yellow-950 via-zinc-950 to-black border-2 border-yellow-500/60 shadow-lg shadow-yellow-500/10 flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
-          <div className="flex items-center gap-2.5 text-xs text-amber-200">
-            <div className="w-7 h-7 rounded-lg bg-yellow-400 text-black font-bold flex items-center justify-center shrink-0 shadow-md">
-              <ListMusic className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-amber-300 text-sm">播放清單連續朗讀中</span>
-                <span className="text-xs font-mono font-bold text-black bg-amber-400 px-2 py-0.2 rounded-full">
-                  第 {playlistIndex + 1} / {playlistItems.length} 首
-                </span>
-              </div>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
-                目前正連續自動播放播放清單內容。當本章朗讀完畢將自動播放下一首。
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={onPlayPrevPlaylistItem}
-              disabled={playlistIndex === 0}
-              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-yellow-800/40 text-xs text-amber-300 disabled:opacity-30 hover:bg-yellow-900/60 transition-colors flex items-center gap-1"
-              title="播放清單上一首"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>上一首</span>
-            </button>
-
-            <button
-              onClick={onPlayNextPlaylistItem}
-              disabled={playlistIndex === playlistItems.length - 1}
-              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-yellow-800/40 text-xs text-amber-300 disabled:opacity-30 hover:bg-yellow-900/60 transition-colors flex items-center gap-1"
-              title="播放清單下一首"
-            >
-              <span>下一首</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-
-            <button
-              onClick={onExitPlaylistMode}
-              className="px-2.5 py-1.5 rounded-lg bg-red-950/70 border border-red-800/50 text-xs text-red-300 hover:bg-red-900 transition-colors ml-1"
-              title="結束播放清單模式"
-            >
-              <X className="w-3.5 h-3.5 inline mr-1" />
-              <span>退出清單</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* TIER 3 (1) 朗讀模式選擇器 */}
       <div className="gold-card p-3.5 rounded-xl space-y-2.5">
         <div className="flex items-center justify-between pb-2 border-b border-yellow-800/40">
@@ -989,16 +890,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   ? `加書籤 (第 ${sV}~${eV} 節)`
                   : '加書籤'}
               </span>
-            </button>
-
-            {/* Add to Playlist Button */}
-            <button
-              onClick={handleAddToPlaylist}
-              className="px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 transition-all shadow-sm"
-              title="將當前章節/節段加入播放清單"
-            >
-              <ListMusic className="w-3.5 h-3.5 text-yellow-400" />
-              <span>加播放清單</span>
             </button>
           </div>
 

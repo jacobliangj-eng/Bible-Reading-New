@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders } from 'lucide-react';
+import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders, Timer, Clock } from 'lucide-react';
 import { BibleVersion } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 
@@ -17,6 +17,8 @@ interface AudioSettingsModalProps {
   onVoiceNameChange?: (voiceName: string) => void;
   isNightMode?: boolean;
   onNightModeChange?: (isNightMode: boolean) => void;
+  sleepTimerEndTime?: number | null;
+  onSetSleepTimer?: (minutes: number | null) => void;
 }
 
 export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
@@ -33,9 +35,26 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onVoiceNameChange,
   isNightMode = false,
   onNightModeChange,
+  sleepTimerEndTime = null,
+  onSetSleepTimer,
 }) => {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
   const versionInfo = VERSIONS[selectedVersion];
+
+  useEffect(() => {
+    if (!sleepTimerEndTime) {
+      setRemainingSeconds(0);
+      return;
+    }
+    const updateRemaining = () => {
+      const secs = Math.max(0, Math.ceil((sleepTimerEndTime - Date.now()) / 1000));
+      setRemainingSeconds(secs);
+    };
+    updateRemaining();
+    const timer = setInterval(updateRemaining, 1000);
+    return () => clearInterval(timer);
+  }, [sleepTimerEndTime]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -179,6 +198,68 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
           <p className="text-[10px] text-zinc-400 leading-tight">
             往左可使朗讀聲更加低沉厚重，往右則使聲音較高亢細緻。
           </p>
+        </div>
+
+        {/* 睡眠定時器 (Sleep Timer) */}
+        <div className="bg-zinc-900/90 p-3.5 rounded-xl border border-yellow-800/50 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-yellow-950 border border-yellow-700/50 flex items-center justify-center text-amber-400 shrink-0">
+                <Timer className="w-4 h-4 text-amber-300" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-amber-200 block">
+                  睡眠定時器 (Sleep Timer)
+                </label>
+                <p className="text-[10px] text-zinc-400 leading-tight">
+                  睡前聆聽專用，指定時間後自動停止朗讀
+                </p>
+              </div>
+            </div>
+
+            {remainingSeconds > 0 && (
+              <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-950/90 px-2 py-0.5 rounded-md border border-amber-500/50 animate-pulse flex items-center gap-1 shrink-0">
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span>
+                  {Math.floor(remainingSeconds / 60)}分{String(remainingSeconds % 60).padStart(2, '0')}秒
+                </span>
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 pt-1">
+            {[
+              { minutes: 0, label: '無定時' },
+              { minutes: 15, label: '15 分鐘' },
+              { minutes: 30, label: '30 分鐘' },
+              { minutes: 60, label: '60 分鐘' },
+            ].map((option) => {
+              const isSelected =
+                option.minutes === 0
+                  ? !sleepTimerEndTime
+                  : sleepTimerEndTime !== null &&
+                    Math.abs((sleepTimerEndTime - Date.now()) / 1000 - option.minutes * 60) < 60;
+
+              return (
+                <button
+                  key={option.minutes}
+                  type="button"
+                  onClick={() => {
+                    if (onSetSleepTimer) {
+                      onSetSleepTimer(option.minutes === 0 ? null : option.minutes);
+                    }
+                  }}
+                  className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all cursor-pointer text-center ${
+                    isSelected
+                      ? 'bg-amber-500 text-black border-amber-300 font-extrabold shadow-md shadow-amber-500/20'
+                      : 'bg-zinc-950 text-amber-200 border-yellow-700/40 hover:border-amber-500/60 hover:bg-zinc-800'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* 夜間護眼模式 (Night Mode) 切換開關 */}
