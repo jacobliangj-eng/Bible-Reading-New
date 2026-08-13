@@ -158,39 +158,39 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
       {/* Daily / Random Verse Card */}
       <div
         onClick={handleSpeakVerse}
-        className={`mt-4 p-3 md:p-3.5 max-w-2xl mx-auto rounded-xl border transition-all duration-300 relative overflow-hidden cursor-pointer select-none group ${
+        className={`mt-6 p-4 md:p-5 rounded-xl border transition-all duration-300 relative overflow-hidden cursor-pointer select-none group ${
           isSpeaking
-            ? 'bg-gradient-to-r from-yellow-950/90 via-amber-950/80 to-zinc-950 border-amber-400 shadow-[0_0_15px_rgba(234,179,8,0.3)] ring-1 ring-amber-400/50'
-            : 'bg-zinc-950/90 border-yellow-600/30 hover:border-amber-400/70 hover:bg-yellow-950/30'
+            ? 'bg-gradient-to-r from-yellow-950/90 via-amber-950/80 to-zinc-950 border-amber-400 shadow-[0_0_20px_rgba(234,179,8,0.4)] ring-1 ring-amber-400/50'
+            : 'bg-zinc-950/90 border-yellow-600/40 hover:border-amber-400/80 hover:bg-yellow-950/30'
         }`}
       >
         <div className="absolute inset-0 bg-gold-glow opacity-30 pointer-events-none" />
 
-        <div className="flex items-center justify-between gap-2 mb-1.5 relative z-10">
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-950/80 border border-yellow-600/50 text-amber-300 text-[11px] font-bold shadow-sm">
-            <Calendar className="w-3 h-3 text-yellow-400" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 relative z-10">
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-950/80 border border-yellow-600/50 text-amber-300 text-xs font-bold shadow-sm self-start">
+            <Calendar className="w-3.5 h-3.5 text-yellow-400" />
             <span>今日金句</span>
           </div>
 
           <div>
             {isSpeaking && (
-              <span className="inline-flex items-center gap-1 font-bold text-amber-300 bg-amber-950/90 px-2 py-0.5 rounded-full border border-amber-400/60 animate-pulse text-[11px]">
-                <Volume2 className="w-3 h-3 text-amber-300 animate-bounce" />
+              <span className="inline-flex items-center gap-1.5 font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-400/60 animate-pulse text-xs">
+                <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
                 <span>朗讀中... (點擊停止)</span>
               </span>
             )}
           </div>
         </div>
 
-        <div className="text-center space-y-1 relative z-10 px-1">
+        <div className="text-center space-y-1.5 relative z-10 py-1 px-2">
           <p
-            className={`text-xs md:text-sm font-serif italic text-amber-100 leading-snug group-hover:text-amber-200 transition-colors ${
+            className={`text-base md:text-lg font-serif italic text-amber-100 leading-relaxed group-hover:text-amber-200 transition-colors ${
               selectedVersion === 'KJV' || selectedVersion === 'LSG' ? 'font-calibri' : ''
             }`}
           >
             {currentVerse.text}
           </p>
-          <p className="text-[11px] text-yellow-500/80 font-mono font-semibold tracking-wide">
+          <p className="text-xs text-yellow-500/90 font-mono font-semibold tracking-wide">
             — {currentVerse.reference}
           </p>
         </div>
