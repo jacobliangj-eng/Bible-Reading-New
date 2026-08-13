@@ -417,3 +417,46 @@ export function getRandomVerse(selectedVersion: BibleVersion = 'CUV'): { text: s
   };
 }
 
+/**
+ * Formats a verse reference string for SpeechSynthesis so chapter:verse numbers
+ * (e.g., "詩篇 Psalm 23:1") are read naturally as "詩篇第23章第1節" instead of time formats ("23點01分").
+ */
+export function formatReferenceForSpeech(ref: string, version: BibleVersion = 'CUV'): string {
+  if (!ref) return '';
+
+  const match = ref.match(/(\d+):(\d+)(?:-(\d+))?/);
+  if (!match) return ref;
+
+  const chapter = match[1];
+  const startVerse = match[2];
+  const endVerse = match[3];
+
+  if (version === 'CUV' || /[\u4e00-\u9fa5]/.test(ref)) {
+    // Chinese format: Extract Chinese book name before any English letters/numbers
+    const chineseBookMatch = ref.match(/^[\u4e00-\u9fa5]+/);
+    const bookName = chineseBookMatch ? chineseBookMatch[0] : ref.split(/\s+\d+/)[0] || '';
+
+    const versePart = endVerse
+      ? `第${chapter}章第${startVerse}至${endVerse}節`
+      : `第${chapter}章第${startVerse}節`;
+
+    return `${bookName}${versePart}`;
+  } else if (version === 'LSG') {
+    // French format
+    const bookName = ref.split(/\s+\d+:/)[0] || '';
+    const versePart = endVerse
+      ? `chapitre ${chapter} versets ${startVerse} à ${endVerse}`
+      : `chapitre ${chapter} verset ${startVerse}`;
+
+    return `${bookName} ${versePart}`;
+  } else {
+    // English / KJV format
+    const bookName = ref.split(/\s+\d+:/)[0] || '';
+    const versePart = endVerse
+      ? `chapter ${chapter} verses ${startVerse} to ${endVerse}`
+      : `chapter ${chapter} verse ${startVerse}`;
+
+    return `${bookName} ${versePart}`;
+  }
+}
+

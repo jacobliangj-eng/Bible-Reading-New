@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2 } from 'lucide-react';
 import { BibleVersion, Bookmark as BookmarkType } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
-import { getDailyVerse, DailyVerse } from '../data/dailyVerses';
+import { getDailyVerse, getRandomVerse, formatReferenceForSpeech, DailyVerse } from '../data/dailyVerses';
 import { getBookmarks, removeBookmark } from '../services/bookmarkService';
 
 interface Tier1VersionSelectProps {
@@ -62,6 +62,16 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     setBookmarks(updated);
   };
 
+  const handleChangeVerse = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    const newVerse = getRandomVerse(selectedVersion);
+    setCurrentVerse(newVerse);
+  };
+
   const handleSpeakVerse = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       alert('您的瀏覽器不支援語音合成朗讀功能');
@@ -76,7 +86,8 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
 
     window.speechSynthesis.cancel();
 
-    const spokenText = `${currentVerse.text}。 ${currentVerse.reference}`;
+    const spokenRef = formatReferenceForSpeech(currentVerse.reference, selectedVersion);
+    const spokenText = `${currentVerse.text}。 ${spokenRef}`;
     const utterance = new SpeechSynthesisUtterance(spokenText);
 
     const versionConfig = VERSIONS[selectedVersion];
@@ -155,34 +166,44 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
         })}
       </div>
 
-      {/* Daily / Random Verse Card */}
+      {/* Daily Verse Card */}
       <div
-        onClick={handleSpeakVerse}
-        className={`mt-6 p-4 md:p-5 rounded-xl border transition-all duration-300 relative overflow-hidden cursor-pointer select-none group ${
+        className={`mt-6 p-4 md:p-5 rounded-xl border transition-all duration-300 relative overflow-hidden select-none ${
           isSpeaking
             ? 'bg-gradient-to-r from-yellow-950/90 via-amber-950/80 to-zinc-950 border-amber-400 shadow-[0_0_20px_rgba(234,179,8,0.4)] ring-1 ring-amber-400/50'
-            : 'bg-zinc-950/90 border-yellow-600/40 hover:border-amber-400/80 hover:bg-yellow-950/30'
+            : 'bg-zinc-950/90 border-yellow-600/40'
         }`}
       >
         <div className="absolute inset-0 bg-gold-glow opacity-30 pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 relative z-10">
-          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-950/80 border border-yellow-600/50 text-amber-300 text-xs font-bold shadow-sm self-start">
-            <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+          <button
+            onClick={handleChangeVerse}
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-950/90 border border-yellow-600/60 hover:border-amber-400 hover:bg-yellow-900/90 text-amber-300 hover:text-amber-200 text-xs font-bold shadow-sm cursor-pointer transition-all active:scale-95 self-start group"
+            title="點擊「今日金句」更換金句"
+          >
+            <Calendar className="w-3.5 h-3.5 text-yellow-400 group-hover:rotate-12 transition-transform" />
             <span>今日金句</span>
-          </div>
+            <span className="text-[10px] text-yellow-500/80 font-normal ml-0.5"></span>
+          </button>
 
           <div>
             {isSpeaking && (
               <span className="inline-flex items-center gap-1.5 font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-400/60 animate-pulse text-xs">
                 <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
-                <span>朗讀中... (點擊停止)</span>
+                <span>朗讀中... (點擊經文停止)</span>
               </span>
             )}
           </div>
         </div>
 
-        <div className="text-center space-y-1.5 relative z-10 py-1 px-2">
+        {/* 經文內容區塊：點擊經文本身會自動朗讀 */}
+        <div
+          onClick={handleSpeakVerse}
+          className="text-center space-y-1.5 relative z-10 py-2 px-3 cursor-pointer rounded-lg hover:bg-yellow-950/30 border border-transparent hover:border-yellow-700/30 transition-all group active:scale-[0.99]"
+          title="點擊經文朗讀/停止"
+        >
           <p
             className={`text-base md:text-lg font-serif italic text-amber-100 leading-relaxed group-hover:text-amber-200 transition-colors ${
               selectedVersion === 'KJV' || selectedVersion === 'LSG' ? 'font-calibri' : ''
