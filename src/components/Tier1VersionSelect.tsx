@@ -1,23 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen } from 'lucide-react';
+import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2, VolumeX, Shuffle } from 'lucide-react';
 import { BibleVersion, Bookmark as BookmarkType } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
-import { getDailyVerse } from '../data/dailyVerses';
+import { getDailyVerse, getRandomVerse, DailyVerse } from '../data/dailyVerses';
 import { getBookmarks, removeBookmark } from '../services/bookmarkService';
 
 interface Tier1VersionSelectProps {
   selectedVersion: BibleVersion;
   onSelectVersion: (version: BibleVersion) => void;
   onOpenBookmark?: (bookmark: BookmarkType) => void;
+  playbackSpeed?: number;
+  speechPitch?: number;
+  selectedVoiceName?: string;
 }
 
 export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
   selectedVersion,
   onSelectVersion,
   onOpenBookmark,
+  playbackSpeed = 1.0,
+  speechPitch = 1.0,
+  selectedVoiceName = '',
 }) => {
   const versionKeys: BibleVersion[] = ['CUV', 'KJV', 'LSG'];
-  const dailyVerse = getDailyVerse(selectedVersion);
+
+  // Current Verse State
+  const [currentVerse, setCurrentVerse] = useState<{ text: string; reference: string; rawVerse: DailyVerse }>(() =>
+    getDailyVerse(selectedVersion)
+  );
+
+  // Speech State
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   const [bookmarks, setBookmarks] = useState<BookmarkType[]>([]);
 
@@ -25,10 +38,75 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     setBookmarks(getBookmarks());
   }, []);
 
+  // Sync displayed verse when selectedVersion changes
+  useEffect(() => {
+    setCurrentVerse((prev) => ({
+      text: prev.rawVerse.text[selectedVersion] || prev.rawVerse.text.CUV,
+      reference: prev.rawVerse.reference[selectedVersion] || prev.rawVerse.reference.CUV,
+      rawVerse: prev.rawVerse,
+    }));
+  }, [selectedVersion]);
+
+  // Clean up speech when unmounting
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   const handleDeleteBookmark = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = removeBookmark(id);
     setBookmarks(updated);
+  };
+
+  const handleRandomVerse = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    const newVerse = getRandomVerse(selectedVersion);
+    setCurrentVerse(newVerse);
+  };
+
+  const handleSpeakVerse = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      alert('您的瀏覽器不支援語音合成朗讀功能');
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const spokenText = `${currentVerse.text}。 ${currentVerse.reference}`;
+    const utterance = new SpeechSynthesisUtterance(spokenText);
+
+    const versionConfig = VERSIONS[selectedVersion];
+    utterance.lang = versionConfig?.langCode || 'zh-TW';
+    utterance.rate = playbackSpeed;
+    utterance.pitch = speechPitch;
+
+    // Apply voice if selectedVoiceName is specified
+    if (selectedVoiceName) {
+      const availableVoices = window.speechSynthesis.getVoices();
+      const matchedVoice = availableVoices.find((v) => v.name === selectedVoiceName);
+      if (matchedVoice) {
+        utterance.voice = matchedVoice;
+      }
+    }
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -86,19 +164,64 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
         })}
       </div>
 
-      {/* Daily Verse Bar */}
-      <div className="mt-6 p-4 rounded-xl bg-zinc-950/80 border border-yellow-600/30 text-center shadow-md relative overflow-hidden">
+      {/* Daily / Random Verse Card */}
+      <div
+        onClick={handleSpeakVerse}
+        className={`mt-6 p-4 md:p-5 rounded-xl border transition-all duration-300 relative overflow-hidden cursor-pointer select-none group ${
+          isSpeaking
+            ? 'bg-gradient-to-r from-yellow-950/90 via-amber-950/80 to-zinc-950 border-amber-400 shadow-[0_0_20px_rgba(234,179,8,0.4)] ring-1 ring-amber-400/50'
+            : 'bg-zinc-950/90 border-yellow-600/40 hover:border-amber-400/80 hover:bg-yellow-950/30'
+        }`}
+      >
         <div className="absolute inset-0 bg-gold-glow opacity-30 pointer-events-none" />
-        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-950/60 border border-yellow-600/40 text-amber-300 text-[10px] font-semibold mb-2">
-          <Calendar className="w-3 h-3 text-yellow-400" />
-          <span>每日金句</span>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 relative z-10">
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-950/80 border border-yellow-600/50 text-amber-300 text-xs font-bold shadow-sm">
+              <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+              <span>今日金句</span>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRandomVerse();
+              }}
+              className="px-2.5 py-0.5 rounded-full bg-zinc-900 border border-yellow-700/50 text-amber-300 hover:text-yellow-200 hover:border-amber-400 hover:bg-yellow-950 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
+              title="點擊隨機更換金句"
+            >
+              <Shuffle className="w-3 h-3 text-yellow-400" />
+              <span>隨機金句</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-amber-400/90 font-medium">
+            {isSpeaking ? (
+              <span className="flex items-center gap-1.5 font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-400/60 animate-pulse">
+                <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
+                <span>朗讀中... (點擊停止)</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 group-hover:text-amber-300 transition-colors bg-yellow-950/40 px-2 py-0.5 rounded border border-yellow-800/40">
+                <Volume2 className="w-3.5 h-3.5 text-yellow-400 group-hover:scale-110 transition-transform" />
+                <span>點擊經文朗讀</span>
+              </span>
+            )}
+          </div>
         </div>
-        <p className="text-sm md:text-base font-serif italic text-amber-200 leading-tight">
-          {dailyVerse.text}
-        </p>
-        <p className="text-[11px] text-yellow-500/70 mt-1 font-mono">
-          {dailyVerse.reference}
-        </p>
+
+        <div className="text-center space-y-1.5 relative z-10 py-1 px-2">
+          <p
+            className={`text-base md:text-lg font-serif italic text-amber-100 leading-relaxed group-hover:text-amber-200 transition-colors ${
+              selectedVersion === 'KJV' || selectedVersion === 'LSG' ? 'font-calibri' : ''
+            }`}
+          >
+            {currentVerse.text}
+          </p>
+          <p className="text-xs text-yellow-500/90 font-mono font-semibold tracking-wide">
+            — {currentVerse.reference}
+          </p>
+        </div>
       </div>
 
       {/* 我的書籤 (My Bookmarks) Section */}
@@ -196,5 +319,6 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     </div>
   );
 };
+
 
 

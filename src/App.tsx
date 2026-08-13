@@ -155,6 +155,9 @@ export default function App() {
             selectedVersion={selectedVersion}
             onSelectVersion={handleSelectVersion}
             onOpenBookmark={handleOpenBookmark}
+            playbackSpeed={playbackSpeed}
+            speechPitch={speechPitch}
+            selectedVoiceName={selectedVoiceName}
           />
         )}
 

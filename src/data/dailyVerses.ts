@@ -383,7 +383,7 @@ export const DAILY_VERSES: DailyVerse[] = [
 /**
  * Returns a deterministic Verse of the Day based on the current date YYYY-MM-DD.
  */
-export function getDailyVerse(selectedVersion: BibleVersion = 'CUV'): { text: string; reference: string } {
+export function getDailyVerse(selectedVersion: BibleVersion = 'CUV'): { text: string; reference: string; rawVerse: DailyVerse } {
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
   
@@ -399,5 +399,21 @@ export function getDailyVerse(selectedVersion: BibleVersion = 'CUV'): { text: st
   return {
     text: verse.text[selectedVersion] || verse.text.CUV,
     reference: verse.reference[selectedVersion] || verse.reference.CUV,
+    rawVerse: verse,
   };
 }
+
+/**
+ * Returns a randomly selected verse from the database.
+ */
+export function getRandomVerse(selectedVersion: BibleVersion = 'CUV'): { text: string; reference: string; rawVerse: DailyVerse } {
+  const index = Math.floor(Math.random() * DAILY_VERSES.length);
+  const verse = DAILY_VERSES[index];
+
+  return {
+    text: verse.text[selectedVersion] || verse.text.CUV,
+    reference: verse.reference[selectedVersion] || verse.reference.CUV,
+    rawVerse: verse,
+  };
+}
+
