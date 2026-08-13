@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2, VolumeX, Shuffle } from 'lucide-react';
+import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2 } from 'lucide-react';
 import { BibleVersion, Bookmark as BookmarkType } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
-import { getDailyVerse, getRandomVerse, DailyVerse } from '../data/dailyVerses';
+import { getDailyVerse, DailyVerse } from '../data/dailyVerses';
 import { getBookmarks, removeBookmark } from '../services/bookmarkService';
 
 interface Tier1VersionSelectProps {
@@ -60,15 +60,6 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     e.stopPropagation();
     const updated = removeBookmark(id);
     setBookmarks(updated);
-  };
-
-  const handleRandomVerse = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeaking(false);
-    const newVerse = getRandomVerse(selectedVersion);
-    setCurrentVerse(newVerse);
   };
 
   const handleSpeakVerse = () => {
@@ -176,35 +167,16 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
         <div className="absolute inset-0 bg-gold-glow opacity-30 pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 relative z-10">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-950/80 border border-yellow-600/50 text-amber-300 text-xs font-bold shadow-sm">
-              <Calendar className="w-3.5 h-3.5 text-yellow-400" />
-              <span>今日金句</span>
-            </div>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRandomVerse();
-              }}
-              className="px-2.5 py-0.5 rounded-full bg-zinc-900 border border-yellow-700/50 text-amber-300 hover:text-yellow-200 hover:border-amber-400 hover:bg-yellow-950 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
-              title="點擊隨機更換金句"
-            >
-              <Shuffle className="w-3 h-3 text-yellow-400" />
-              <span>隨機金句</span>
-            </button>
+          <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-950/80 border border-yellow-600/50 text-amber-300 text-xs font-bold shadow-sm self-start">
+            <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+            <span>今日金句</span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs text-amber-400/90 font-medium">
-            {isSpeaking ? (
-              <span className="flex items-center gap-1.5 font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-400/60 animate-pulse">
+          <div>
+            {isSpeaking && (
+              <span className="inline-flex items-center gap-1.5 font-bold text-amber-300 bg-amber-950/90 px-2.5 py-0.5 rounded-full border border-amber-400/60 animate-pulse text-xs">
                 <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
                 <span>朗讀中... (點擊停止)</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 group-hover:text-amber-300 transition-colors bg-yellow-950/40 px-2 py-0.5 rounded border border-yellow-800/40">
-                <Volume2 className="w-3.5 h-3.5 text-yellow-400 group-hover:scale-110 transition-transform" />
-                <span>點擊經文朗讀</span>
               </span>
             )}
           </div>
