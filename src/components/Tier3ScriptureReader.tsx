@@ -79,7 +79,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   useEffect(() => {
     const initCh = initialChapter ?? 1;
     setStartChapter(initCh);
-    setEndChapter(initCh);
+    setEndChapter(selectedBook.chaptersCount);
     setTargetChapter(initCh);
     setViewChapter(initCh);
     if (initialReadingMode) {
