@@ -460,3 +460,14 @@ export function formatReferenceForSpeech(ref: string, version: BibleVersion = 'C
   }
 }
 
+/**
+ * Corrects Chinese pronunciation issues for SpeechSynthesis TTS.
+ * Fixes "地" being incorrectly pronounced as "de" (的) when used as noun/location (earth/land).
+ * Replaces "地" with "帝" in TTS spoken text only, so TTS engines pronounce "dì" (第4聲).
+ * Visual text remains untouched.
+ */
+export function fixChineseTTSPronunciation(text: string): string {
+  if (!text) return '';
+  return text.replace(/地/g, '帝');
+}
+

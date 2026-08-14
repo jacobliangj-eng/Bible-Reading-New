@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders, Timer, Clock } from 'lucide-react';
 import { BibleVersion } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
+import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 
 interface AudioSettingsModalProps {
   isOpen: boolean;
@@ -85,6 +86,8 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
       sampleText = 'Genesis, Chapter 1. In the beginning God created the heaven and the earth.';
     } else if (selectedVersion === 'LBS') {
       sampleText = 'Genèse, Chapitre 1. Au commencement, Dieu créa les cieux et la terre.';
+    } else {
+      sampleText = fixChineseTTSPronunciation(sampleText);
     }
 
     const utterance = new SpeechSynthesisUtterance(sampleText);

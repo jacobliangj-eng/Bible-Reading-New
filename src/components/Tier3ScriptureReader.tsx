@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
+import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import { fetchChapterVerses } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 
@@ -78,13 +79,21 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   useEffect(() => {
     const initCh = initialChapter ?? 1;
     setStartChapter(initCh);
-    setEndChapter(selectedBook.chaptersCount);
+    setEndChapter(initCh);
     setTargetChapter(initCh);
     setViewChapter(initCh);
     if (initialReadingMode) {
       setReadingMode(initialReadingMode);
+    } else if (initialStartVerse !== undefined && initialEndVerse !== undefined) {
+      setReadingMode('VERSES');
     }
-  }, [selectedBook, initialChapter, initialReadingMode]);
+    if (initialStartVerse !== undefined) {
+      setStartVerseNum(initialStartVerse);
+    }
+    if (initialEndVerse !== undefined) {
+      setEndVerseNum(initialEndVerse);
+    }
+  }, [selectedBook, initialChapter, initialReadingMode, initialStartVerse, initialEndVerse]);
 
   const [targetChapter, setTargetChapter] = useState<number>(initialChapter ?? 1);
 
@@ -163,7 +172,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [viewChapter, setViewChapter] = useState<number>(1);
 
   // Bookmark state & toggle
-  const isVerseMode = readingMode === 'VERSES';
+  const isVerseMode = readingMode === 'VERSES' || startVerseNum > 1 || endVerseNum < maxVersesForChapter;
   const sV = Math.min(startVerseNum, endVerseNum);
   const eV = Math.max(startVerseNum, endVerseNum);
 
@@ -463,6 +472,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         speechText = verseObj.text;
       }
 
+      if (selectedVersion === 'CUV' || versionInfo?.langCode?.startsWith('zh')) {
+        speechText = fixChineseTTSPronunciation(speechText);
+      }
+
       const utterance = new SpeechSynthesisUtterance(speechText);
 
       // Set Language, Rate, Pitch
@@ -725,6 +738,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 const val = Number(e.target.value);
                 setStartVerseNum(val);
                 if (val > endVerseNum) setEndVerseNum(val);
+                setReadingMode('VERSES');
               }}
               className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
             >
@@ -743,6 +757,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 const val = Number(e.target.value);
                 setEndVerseNum(val);
                 if (val < startVerseNum) setStartVerseNum(val);
+                setReadingMode('VERSES');
               }}
               className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
             >

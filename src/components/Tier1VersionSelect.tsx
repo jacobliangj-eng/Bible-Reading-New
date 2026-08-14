@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2 } from 'lucide-react';
 import { BibleVersion, Bookmark as BookmarkType } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
-import { getDailyVerse, getRandomVerse, formatReferenceForSpeech, DailyVerse } from '../data/dailyVerses';
+import { getDailyVerse, getRandomVerse, formatReferenceForSpeech, fixChineseTTSPronunciation, DailyVerse } from '../data/dailyVerses';
 import { getBookmarks, removeBookmark } from '../services/bookmarkService';
 
 interface Tier1VersionSelectProps {
@@ -87,7 +87,8 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     window.speechSynthesis.cancel();
 
     const spokenRef = formatReferenceForSpeech(currentVerse.reference, selectedVersion);
-    const spokenText = `${currentVerse.text}。 ${spokenRef}`;
+    const rawSpokenText = `${currentVerse.text}。 ${spokenRef}`;
+    const spokenText = selectedVersion === 'CUV' ? fixChineseTTSPronunciation(rawSpokenText) : rawSpokenText;
     const utterance = new SpeechSynthesisUtterance(spokenText);
 
     const versionConfig = VERSIONS[selectedVersion];
