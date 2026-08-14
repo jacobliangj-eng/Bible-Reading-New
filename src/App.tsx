@@ -118,7 +118,7 @@ export default function App() {
       setSelectedVersion(bookmark.version);
       setSelectedBook(book);
       setInitialChapter(bookmark.chapter);
-      setInitialReadingMode(bookmark.readingMode);
+      setInitialReadingMode(bookmark.readingMode || (bookmark.startVerse !== undefined ? 'VERSES' : 'CHAPTERS'));
       setInitialStartVerse(bookmark.startVerse);
       setInitialEndVerse(bookmark.endVerse);
       setCurrentTier('TIER3');

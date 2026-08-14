@@ -10,7 +10,7 @@ export function getBookmarkId(b: {
   startVerse?: number;
   endVerse?: number;
 }): string {
-  if (b.readingMode === 'VERSES' && b.startVerse !== undefined && b.endVerse !== undefined) {
+  if ((b.readingMode === 'VERSES' || (b.startVerse !== undefined && b.endVerse !== undefined)) && b.startVerse !== undefined && b.endVerse !== undefined) {
     return `${b.version}_${b.bookId}_${b.chapter}_v${b.startVerse}-${b.endVerse}`;
   }
   return `${b.version}_${b.bookId}_${b.chapter}`;

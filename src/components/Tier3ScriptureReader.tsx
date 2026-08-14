@@ -79,14 +79,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   useEffect(() => {
     const initCh = initialChapter ?? 1;
     setStartChapter(initCh);
-    setEndChapter(selectedBook.chaptersCount);
     setTargetChapter(initCh);
     setViewChapter(initCh);
-    if (initialReadingMode) {
-      setReadingMode(initialReadingMode);
-    } else if (initialStartVerse !== undefined && initialEndVerse !== undefined) {
+
+    if (initialReadingMode === 'BOOK') {
+      setEndChapter(selectedBook.chaptersCount);
+      setReadingMode('BOOK');
+    } else if (initialReadingMode === 'CHAPTERS') {
+      setEndChapter(initCh);
+      setReadingMode('CHAPTERS');
+    } else if (initialReadingMode === 'VERSES' || (initialStartVerse !== undefined && initialEndVerse !== undefined)) {
+      setEndChapter(initCh);
       setReadingMode('VERSES');
+    } else {
+      setEndChapter(selectedBook.chaptersCount);
+      setReadingMode('CHAPTERS');
     }
+
     if (initialStartVerse !== undefined) {
       setStartVerseNum(initialStartVerse);
     }
@@ -122,10 +131,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         if (!isCancelled && chVerses && chVerses.length > 0) {
           const totalCount = chVerses.length;
           setMaxVersesForChapter(totalCount);
-          if (initialStartVerse !== undefined && initialEndVerse !== undefined) {
+          if (initialStartVerse !== undefined && initialEndVerse !== undefined && targetChapter === (initialChapter ?? 1)) {
             setStartVerseNum(Math.min(initialStartVerse, totalCount));
             setEndVerseNum(Math.min(initialEndVerse, totalCount));
-          } else {
+          } else if (startVerseNum > totalCount || endVerseNum > totalCount) {
             setStartVerseNum(1);
             setEndVerseNum(totalCount);
           }
@@ -140,7 +149,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialStartVerse, initialEndVerse]);
+  }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialChapter, initialStartVerse, initialEndVerse]);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
