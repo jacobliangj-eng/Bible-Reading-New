@@ -228,31 +228,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Min & Max Chapter bounds based on reading mode
+  // Min & Max Chapter bounds based on selected chapter range
   const minChapter = React.useMemo(() => {
-    if (readingMode === 'BOOK') return 1;
-    if (readingMode === 'CHAPTERS') return Math.min(startChapter, endChapter);
-    return targetChapter;
-  }, [readingMode, startChapter, endChapter, targetChapter]);
+    return Math.min(startChapter, endChapter);
+  }, [startChapter, endChapter]);
 
   const maxChapter = React.useMemo(() => {
-    if (readingMode === 'BOOK') return selectedBook.chaptersCount;
-    if (readingMode === 'CHAPTERS') return Math.max(startChapter, endChapter);
-    return targetChapter;
-  }, [readingMode, startChapter, endChapter, targetChapter, selectedBook.chaptersCount]);
+    return Math.max(startChapter, endChapter);
+  }, [startChapter, endChapter]);
 
-  // Sync viewChapter within valid min/max bounds when readingMode or chapter selectors change
+  // Sync viewChapter within valid min/max bounds when chapter selectors change
   useEffect(() => {
-    if (readingMode === 'CHAPTERS') {
-      const sCh = Math.min(startChapter, endChapter);
-      const eCh = Math.max(startChapter, endChapter);
-      if (viewChapter < sCh || viewChapter > eCh) {
-        setViewChapter(sCh);
-      }
-    } else if (readingMode === 'VERSES') {
-      setViewChapter(targetChapter);
+    const sCh = Math.min(startChapter, endChapter);
+    const eCh = Math.max(startChapter, endChapter);
+    if (viewChapter < sCh || viewChapter > eCh) {
+      setViewChapter(sCh);
     }
-  }, [readingMode, startChapter, endChapter, targetChapter]);
+  }, [startChapter, endChapter]);
 
   // Refs to keep track of freshest state inside audio callbacks
   const activeVersesRef = useRef<Verse[]>([]);
@@ -318,9 +310,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         );
 
         let resultVerses = chVerses;
-        if (readingMode === 'VERSES') {
-          const sV = Math.min(startVerseNum, endVerseNum);
-          const eV = Math.max(startVerseNum, endVerseNum);
+        const sV = Math.min(startVerseNum, endVerseNum);
+        const eV = Math.max(startVerseNum, endVerseNum);
+        if (sV > 1 || eV < chVerses.length) {
           resultVerses = chVerses.filter((v) => v.verse >= sV && v.verse <= eV);
         }
 
@@ -674,126 +666,92 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   return (
     <div className="max-w-6xl mx-auto px-4 py-3 md:py-4 space-y-3">
       {/* TIER 3 (1) 朗讀模式選擇器 */}
-      <div className="gold-card p-3.5 rounded-xl space-y-2.5">
-        <div className="flex items-center justify-between pb-2 border-b border-yellow-800/40">
+      <div className="gold-card p-2.5 rounded-xl space-y-1.5">
+        <div className="flex items-center justify-between pb-1 border-b border-yellow-800/40">
           <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs md:text-sm">
             <ListOrdered className="w-3.5 h-3.5 text-amber-400" />
             <span>朗讀模式設定 (Reading Mode)</span>
           </div>
         </div>
 
-        {/* 2 Radio Mode Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {/* Mode 1: 重複朗讀幾章 */}
-          <button
-            onClick={() => setReadingMode('CHAPTERS')}
-            className={`p-2.5 rounded-lg border text-left transition-all flex flex-col justify-between ${
-              readingMode === 'CHAPTERS'
-                ? 'bg-yellow-950/80 border-amber-400 text-amber-200 shadow-md'
-                : 'bg-zinc-900/80 border-yellow-900/40 text-zinc-400 hover:border-yellow-600/50 hover:text-amber-300'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-bold text-xs text-amber-100">
-                1）重複朗讀幾章
-              </span>
-              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-          </button>
+        {/* 範圍/章/節 控制區 */}
+        <div className="bg-black/60 p-2 rounded-lg space-y-1.5">
+          {/* 章 */}
+          <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
+            <span className="font-bold text-amber-200 shrink-0 w-8">章：</span>
+            <select
+              value={startChapter}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setStartChapter(val);
+                if (val > endChapter) setEndChapter(val);
+                setViewChapter(val);
+                setTargetChapter(val);
+              }}
+              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
+            >
+              {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  第 {i + 1} 章
+                </option>
+              ))}
+            </select>
 
-          {/* Mode 2: 重複朗讀某章內的某幾節 */}
-          <button
-            onClick={() => setReadingMode('VERSES')}
-            className={`p-2.5 rounded-lg border text-left transition-all flex flex-col justify-between ${
-              readingMode === 'VERSES'
-                ? 'bg-yellow-950/80 border-amber-400 text-amber-200 shadow-md'
-                : 'bg-zinc-900/80 border-yellow-900/40 text-zinc-400 hover:border-yellow-600/50 hover:text-amber-300'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-bold text-xs text-amber-100">
-                2）重複朗讀某章內的某幾節
-              </span>
-              <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            </div>
-          </button>
-        </div>
+            <span className="text-yellow-600 font-bold shrink-0 px-1">至</span>
 
-        {/* Mode Specific Controls & Scope Selectors */}
-        <div className="mt-1 pt-1.5 border-t border-yellow-900/40 bg-black/60 px-2.5 py-1 rounded-lg">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {readingMode === 'CHAPTERS' && (
-              <div className="col-start-1 flex items-center justify-start gap-1 text-xs flex-nowrap overflow-x-auto">
-                <span className="font-bold text-amber-200 shrink-0">範圍：</span>
-                <select
-                  value={startChapter}
-                  onChange={(e) => setStartChapter(Number(e.target.value))}
-                  className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-                >
-                  {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      第 {i + 1} 章
-                    </option>
-                  ))}
-                </select>
+            <select
+              value={endChapter}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setEndChapter(val);
+                if (val < startChapter) setStartChapter(val);
+              }}
+              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
+            >
+              {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  第 {i + 1} 章
+                </option>
+              ))}
+            </select>
+          </div>
 
-                <span className="text-yellow-600 font-bold shrink-0 px-0.5">至</span>
+          {/* 節 */}
+          <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
+            <span className="font-bold text-amber-200 shrink-0 w-8">節：</span>
+            <select
+              value={startVerseNum}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setStartVerseNum(val);
+                if (val > endVerseNum) setEndVerseNum(val);
+              }}
+              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
+            >
+              {Array.from({ length: maxVersesForChapter }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  第 {i + 1} 節
+                </option>
+              ))}
+            </select>
 
-                <select
-                  value={endChapter}
-                  onChange={(e) => setEndChapter(Number(e.target.value))}
-                  className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-                >
-                  {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      第 {i + 1} 章
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <span className="text-yellow-600 font-bold shrink-0 px-1">至</span>
 
-            {readingMode === 'VERSES' && (
-              <div className="col-start-1 md:col-start-2 flex items-center justify-start gap-1 text-xs flex-nowrap overflow-x-auto">
-                <select
-                  value={targetChapter}
-                  onChange={(e) => setTargetChapter(Number(e.target.value))}
-                  className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-                >
-                  {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      第 {i + 1} 章
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={startVerseNum}
-                  onChange={(e) => setStartVerseNum(Number(e.target.value))}
-                  className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-                >
-                  {Array.from({ length: maxVersesForChapter }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      第 {i + 1} 節
-                    </option>
-                  ))}
-                </select>
-
-                <span className="text-yellow-600 font-bold shrink-0 px-0.5">至</span>
-
-                <select
-                  value={endVerseNum}
-                  onChange={(e) => setEndVerseNum(Number(e.target.value))}
-                  className="bg-zinc-900 border border-yellow-600/50 rounded px-1.5 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-                >
-                  {Array.from({ length: maxVersesForChapter }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      第 {i + 1} 節
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <select
+              value={endVerseNum}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setEndVerseNum(val);
+                if (val < startVerseNum) setStartVerseNum(val);
+              }}
+              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
+            >
+              {Array.from({ length: maxVersesForChapter }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  第 {i + 1} 節
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
@@ -801,53 +759,69 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       {/* Main Reading Playbar */}
       <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg flex flex-col md:flex-row items-center justify-between gap-2.5">
         {/* Playback Controls */}
-        <div className="flex items-center gap-2">
-          {/* Main Play/Pause Button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Main Play/Pause Button (無文字) */}
           <button
             onClick={handleTogglePlayPause}
-            className={`px-4 py-2 rounded-lg font-bold flex items-center gap-1.5 text-xs shadow-md transition-all ${
+            className={`p-2 rounded-lg font-bold flex items-center justify-center text-xs shadow-md transition-all ${
               isPlaying
                 ? 'bg-amber-500 text-black hover:bg-amber-400 shadow-amber-500/40'
                 : 'btn-gold shadow-amber-500/30'
             }`}
+            title={isPlaying ? '暫停朗讀' : '開始朗讀'}
           >
             {isPlaying ? (
-              <>
-                <Pause className="w-4 h-4 fill-current" />
-                <span>暫停朗讀</span>
-              </>
+              <Pause className="w-4 h-4 fill-current" />
             ) : (
-              <>
-                <Play className="w-4 h-4 fill-current" />
-                <span>開始朗讀</span>
-              </>
+              <Play className="w-4 h-4 fill-current" />
             )}
           </button>
 
           {/* Reset / Restart Reading Button */}
-          <button
-            onClick={handleRestart}
-            className="p-2 rounded-lg bg-zinc-900 border border-yellow-700/40 text-amber-400 hover:text-yellow-200 hover:bg-zinc-800 transition-colors"
-            title="重新從第一節朗讀"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
 
-          {/* Repeat Mode Toggle */}
+
+          {/* Repeat Mode Toggle (無文字) */}
           <button
             onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 border transition-all ${
+            className={`p-2 rounded-lg text-xs font-semibold flex items-center justify-center border transition-all ${
               isInfiniteLoop
                 ? 'bg-yellow-950 text-amber-300 border-amber-400'
                 : 'bg-zinc-900 text-zinc-400 border-zinc-800'
             }`}
-            title="切換是否重複循環朗讀"
+            title={isInfiniteLoop ? '無限重複中 (點擊切換為單次朗讀)' : '單次朗讀 (點擊切換為重複朗讀)'}
           >
-            <Repeat className="w-3 h-3" />
-            <span>{isInfiniteLoop ? '無限重複中' : '單次朗讀'}</span>
+            <Repeat className="w-3.5 h-3.5" />
           </button>
 
-
+          {/* 加書籤按鈕 (移至單次朗讀按鈕後面) */}
+          <button
+            onClick={handleToggleBookmark}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
+              isBookmarkedState
+                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+            }`}
+            title={
+              isBookmarkedState
+                ? isVerseMode
+                  ? `移除第 ${sV}~${eV} 節書籤`
+                  : '移除此章書籤'
+                : isVerseMode
+                ? `加第 ${sV}~${eV} 節至書籤`
+                : '加到我的書籤'
+            }
+          >
+            <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
+            <span>
+              {isBookmarkedState
+                ? isVerseMode
+                  ? `已加入 (${sV}~${eV}節)`
+                  : '已加入'
+                : isVerseMode
+                ? `加書籤 (${sV}~${eV}節)`
+                : '加書籤'}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -863,34 +837,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             <h3 className="text-base font-bold text-gold-bright">
               {bookName} 第 {viewChapter} 章
             </h3>
-            <button
-              onClick={handleToggleBookmark}
-              className={`ml-1 px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-                isBookmarkedState
-                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-              }`}
-              title={
-                isBookmarkedState
-                  ? isVerseMode
-                    ? `移除第 ${sV}~${eV} 節書籤`
-                    : '移除此章書籤'
-                  : isVerseMode
-                  ? `加第 ${sV}~${eV} 節至書籤`
-                  : '加到我的書籤'
-              }
-            >
-              <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
-              <span>
-                {isBookmarkedState
-                  ? isVerseMode
-                    ? `已加入 (第 ${sV}~${eV} 節)`
-                    : '已加入書籤'
-                  : isVerseMode
-                  ? `加書籤 (第 ${sV}~${eV} 節)`
-                  : '加書籤'}
-              </span>
-            </button>
           </div>
 
           {/* Chapter Navigation Bar */}
