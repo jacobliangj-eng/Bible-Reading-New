@@ -760,40 +760,44 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg flex flex-col md:flex-row items-center justify-between gap-2.5">
         {/* Playback Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Main Play/Pause Button (無文字) */}
+          {/* Main Play/Pause Button */}
           <button
             onClick={handleTogglePlayPause}
-            className={`p-2 rounded-lg font-bold flex items-center justify-center text-xs shadow-md transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${
               isPlaying
-                ? 'bg-amber-500 text-black hover:bg-amber-400 shadow-amber-500/40'
-                : 'btn-gold shadow-amber-500/30'
+                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
             }`}
             title={isPlaying ? '暫停朗讀' : '開始朗讀'}
           >
             {isPlaying ? (
-              <Pause className="w-4 h-4 fill-current" />
+              <>
+                <Pause className="w-3.5 h-3.5 fill-current" />
+                <span>暫停</span>
+              </>
             ) : (
-              <Play className="w-4 h-4 fill-current" />
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>開始</span>
+              </>
             )}
           </button>
 
-          {/* Reset / Restart Reading Button */}
-
-
-          {/* Repeat Mode Toggle (無文字) */}
+          {/* Repeat Mode Toggle */}
           <button
             onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
-            className={`p-2 rounded-lg text-xs font-semibold flex items-center justify-center border transition-all ${
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
               isInfiniteLoop
-                ? 'bg-yellow-950 text-amber-300 border-amber-400'
-                : 'bg-zinc-900 text-zinc-400 border-zinc-800'
+                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
             }`}
-            title={isInfiniteLoop ? '無限重複中 (點擊切換為單次朗讀)' : '單次朗讀 (點擊切換為重複朗讀)'}
+            title={isInfiniteLoop ? '無限重複中' : '單次朗讀'}
           >
             <Repeat className="w-3.5 h-3.5" />
+            <span>{isInfiniteLoop ? '循環' : '單次'}</span>
           </button>
 
-          {/* 加書籤按鈕 (移至單次朗讀按鈕後面) */}
+          {/* 加書籤按鈕 */}
           <button
             onClick={handleToggleBookmark}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
@@ -801,26 +805,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
                 : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
             }`}
-            title={
-              isBookmarkedState
-                ? isVerseMode
-                  ? `移除第 ${sV}~${eV} 節書籤`
-                  : '移除此章書籤'
-                : isVerseMode
-                ? `加第 ${sV}~${eV} 節至書籤`
-                : '加到我的書籤'
-            }
+            title={isBookmarkedState ? '移除書籤' : '加書籤'}
           >
             <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
-            <span>
-              {isBookmarkedState
-                ? isVerseMode
-                  ? `已加入 (${sV}~${eV}節)`
-                  : '已加入'
-                : isVerseMode
-                ? `加書籤 (${sV}~${eV}節)`
-                : '加書籤'}
-            </span>
+            <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
           </button>
         </div>
       </div>
