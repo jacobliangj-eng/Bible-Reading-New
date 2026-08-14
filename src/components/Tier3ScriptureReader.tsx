@@ -834,14 +834,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pb-2.5 border-b border-yellow-800/40">
-          <div className="flex items-center gap-2 flex-wrap">
-            <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
-            <h3 className="text-base font-bold text-gold-bright">
-              {bookName} 第 {viewChapter} 章
-            </h3>
-          </div>
-
+        <div className="flex items-center justify-center sm:justify-end pb-2.5 border-b border-yellow-800/40">
           {/* Chapter Navigation Bar */}
           <div className="flex items-center gap-1.5">
             <button
