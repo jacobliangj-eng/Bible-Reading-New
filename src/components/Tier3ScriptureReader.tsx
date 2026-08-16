@@ -3,27 +3,22 @@ import {
   Play,
   Pause,
   RotateCcw,
-  ArrowLeft,
-  Home,
   Volume2,
   VolumeX,
-  Settings,
-  BookOpen,
   ListOrdered,
   Repeat,
-  Sliders,
-  Maximize2,
   ChevronLeft,
   ChevronRight,
   Copy,
   Check,
   X,
   Bookmark,
+  Loader2,
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
-import { fetchChapterVerses } from '../services/bibleService';
+import { fetchChapterVerses, getFhlChapterAudioUrls } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 
 interface Tier3ScriptureReaderProps {
@@ -74,6 +69,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // 3) 重複朗讀某章內的某幾節 (VERSES)
   const [readingMode, setReadingMode] = useState<ReadingMode>(initialReadingMode ?? 'CHAPTERS');
 
+  // Determine whether to use FHL Real Human MP3 Audio:
+  // Active when in CUV (中文新標點和合本) and reading mode is chapter-based (not VERSES)
+  const isFhlMp3Mode = selectedVersion === 'CUV' && readingMode !== 'VERSES';
+
   // Chapter & Verse selections
   const [startChapter, setStartChapter] = useState<number>(1);
   const [endChapter, setEndChapter] = useState<number>(selectedBook.chaptersCount);
@@ -107,51 +106,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   }, [selectedBook, initialChapter, initialReadingMode, initialStartVerse, initialEndVerse]);
 
   const [targetChapter, setTargetChapter] = useState<number>(initialChapter ?? 1);
-
   const [startVerseNum, setStartVerseNum] = useState<number>(initialStartVerse ?? 1);
   const [endVerseNum, setEndVerseNum] = useState<number>(initialEndVerse ?? 31);
   const [maxVersesForChapter, setMaxVersesForChapter] = useState<number>(31);
-
-  useEffect(() => {
-    if (autoStartPlayback) {
-      shouldAutoPlayRef.current = true;
-    }
-  }, [autoStartPlayback, selectedBook, selectedVersion, initialChapter]);
-
-
-  // Update verse bounds whenever targetChapter or book changes
-  useEffect(() => {
-    let isCancelled = false;
-    const updateVerseBounds = async () => {
-      try {
-        const chVerses = await fetchChapterVerses(
-          selectedBook.id,
-          bookName,
-          targetChapter,
-          selectedVersion
-        );
-        if (!isCancelled && chVerses && chVerses.length > 0) {
-          const totalCount = chVerses.length;
-          setMaxVersesForChapter(totalCount);
-          if (initialStartVerse !== undefined && initialEndVerse !== undefined && targetChapter === (initialChapter ?? 1)) {
-            setStartVerseNum(Math.min(initialStartVerse, totalCount));
-            setEndVerseNum(Math.min(initialEndVerse, totalCount));
-          } else if (startVerseNum > totalCount || endVerseNum > totalCount) {
-            setStartVerseNum(1);
-            setEndVerseNum(totalCount);
-          }
-        }
-      } catch (err) {
-        console.warn('Error fetching chapter verses count:', err);
-      }
-    };
-
-    updateVerseBounds();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialChapter, initialStartVerse, initialEndVerse]);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -169,6 +126,19 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [activeVerses, setActiveVerses] = useState<Verse[]>([]);
   const [isLoadingVerses, setIsLoadingVerses] = useState<boolean>(true);
 
+  // Currently displayed chapter number (page by page)
+  const [viewChapter, setViewChapter] = useState<number>(1);
+
+  // MP3 Audio Player State & Audio Element
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioCurrentTime, setAudioCurrentTime] = useState<number>(0);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [isAudioBuffering, setIsAudioBuffering] = useState<boolean>(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  // Current FHL Audio URL info
+  const fhlAudio = getFhlChapterAudioUrls(selectedBook.number, viewChapter);
+
   // Copy Verse Confirmation Modal State
   const [selectedCopyVerse, setSelectedCopyVerse] = useState<{
     chapter: number;
@@ -178,9 +148,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   } | null>(null);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const lastVerseTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
-
-  // Currently displayed chapter number (page by page)
-  const [viewChapter, setViewChapter] = useState<number>(1);
 
   // Bookmark state & toggle
   const isVerseMode = readingMode === 'VERSES' || startVerseNum > 1 || endVerseNum < maxVersesForChapter;
@@ -235,13 +202,14 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-
-  // Swipe gesture touch positions
-  const touchStartXRef = useRef<number | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
-
   // Continuation ref when switching chapter during continuous playback
   const shouldAutoPlayRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (autoStartPlayback) {
+      shouldAutoPlayRef.current = true;
+    }
+  }, [autoStartPlayback, selectedBook, selectedVersion, initialChapter]);
 
   // Refs for Speech Synthesis and Auto-scrolling
   const synthRef = useRef<SpeechSynthesis | null>(null);
@@ -274,6 +242,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const isInfiniteLoopRef = useRef<boolean>(false);
   const playbackSpeedRef = useRef<number>(1.0);
   const speechPitchRef = useRef<number>(1.0);
+  const isPlayingRef = useRef<boolean>(false);
 
   useEffect(() => {
     activeVersesRef.current = activeVerses;
@@ -297,11 +266,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   useEffect(() => {
     playbackSpeedRef.current = playbackSpeed;
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackSpeed;
+    }
   }, [playbackSpeed]);
 
   useEffect(() => {
     speechPitchRef.current = speechPitch;
   }, [speechPitch]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   // Initialize Speech Synthesis
   useEffect(() => {
@@ -314,6 +290,40 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       }
     };
   }, []);
+
+  // Update verse bounds whenever targetChapter or book changes
+  useEffect(() => {
+    let isCancelled = false;
+    const updateVerseBounds = async () => {
+      try {
+        const chVerses = await fetchChapterVerses(
+          selectedBook.id,
+          bookName,
+          targetChapter,
+          selectedVersion
+        );
+        if (!isCancelled && chVerses && chVerses.length > 0) {
+          const totalCount = chVerses.length;
+          setMaxVersesForChapter(totalCount);
+          if (initialStartVerse !== undefined && initialEndVerse !== undefined && targetChapter === (initialChapter ?? 1)) {
+            setStartVerseNum(Math.min(initialStartVerse, totalCount));
+            setEndVerseNum(Math.min(initialEndVerse, totalCount));
+          } else if (startVerseNum > totalCount || endVerseNum > totalCount) {
+            setStartVerseNum(1);
+            setEndVerseNum(totalCount);
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching chapter verses count:', err);
+      }
+    };
+
+    updateVerseBounds();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialChapter, initialStartVerse, initialEndVerse]);
 
   // Fetch Verses for the single current viewChapter asynchronously
   useEffect(() => {
@@ -332,7 +342,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         let resultVerses = chVerses;
         const sV = Math.min(startVerseNum, endVerseNum);
         const eV = Math.max(startVerseNum, endVerseNum);
-        if (sV > 1 || eV < chVerses.length) {
+        if (readingMode === 'VERSES' && (sV > 1 || eV < chVerses.length)) {
           resultVerses = chVerses.filter((v) => v.verse >= sV && v.verse <= eV);
         }
 
@@ -348,11 +358,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           if (shouldAutoPlayRef.current) {
             shouldAutoPlayRef.current = false;
             setIsPlaying(true);
-            setTimeout(() => {
-              speakVerse(0);
-            }, 80);
-          } else {
-            setIsPlaying(false);
+            if (isFhlMp3Mode && audioRef.current) {
+              audioRef.current.currentTime = 0;
+              audioRef.current.playbackRate = playbackSpeedRef.current;
+              audioRef.current.play().catch((err) => console.warn('AutoPlay MP3 failed:', err));
+            } else {
+              setTimeout(() => {
+                speakVerse(0);
+              }, 80);
+            }
           }
         }
       } catch (error) {
@@ -376,9 +390,37 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     selectedBook.id,
     bookName,
     selectedVersion,
+    isFhlMp3Mode,
   ]);
 
-  // Prev / Next Chapter Handlers
+  // Synchronize MP3 Audio source on viewChapter or book change
+  useEffect(() => {
+    if (!isFhlMp3Mode) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
+    setAudioCurrentTime(0);
+    setAudioError(null);
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.load();
+      audio.playbackRate = playbackSpeedRef.current;
+      if (shouldAutoPlayRef.current || isPlayingRef.current) {
+        audio.play().catch((err) => {
+          console.warn('Audio play request interrupted or prevented:', err);
+        });
+      }
+    }
+  }, [viewChapter, selectedBook.number, isFhlMp3Mode]);
+
+  // Touch Swipe Handlers for Chapter Switching (向右滑：上一章, 向左滑：下一章)
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
   const handlePrevChapter = () => {
     if (viewChapter > minChapter) {
       if (synthRef.current) {
@@ -399,7 +441,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Touch Swipe Handlers for Chapter Switching (向右滑：上一章, 向左滑：下一章)
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
@@ -417,24 +458,20 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     touchStartXRef.current = null;
     touchStartYRef.current = null;
 
-    // Check if horizontal swipe is dominant and beyond threshold (50px)
     if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
       if (deltaX < 0) {
-        // Swiped Left -> Next Chapter (向左滑動顯示下一章)
         handleNextChapter();
       } else {
-        // Swiped Right -> Previous Chapter (向右滑動顯示上一章)
         handlePrevChapter();
       }
     }
   };
 
-  // Handle Speech for a given verse index
+  // TTS Speech for a given verse index (used in Verse mode and KJV/LSG)
   const speakVerse = useCallback(
     (index: number) => {
       const currentVerses = activeVersesRef.current;
       if (!synthRef.current || index < 0 || index >= currentVerses.length) {
-        // Reached end of current chapter verses
         if (viewChapterRef.current < maxChapterRef.current) {
           shouldAutoPlayRef.current = true;
           setViewChapter((prev) => prev + 1);
@@ -454,7 +491,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         return;
       }
 
-      // Cancel ongoing utterance if currently speaking
       if (synthRef.current.speaking || synthRef.current.pending) {
         synthRef.current.cancel();
       }
@@ -467,8 +503,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
       setCurrentVerseIndex(index);
 
-      // Construct spoken text: 只有在每章第1節（index 0 且 verse === 1）時前置唸出「書卷名稱」與「第幾章」
-      // 自第2節起（或非章首），不用唸書卷名與章節，只唸內文經文
       const isChapterStart = index === 0 && verseObj.verse === 1;
       let speechText = '';
       if (isChapterStart) {
@@ -488,13 +522,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       }
 
       const utterance = new SpeechSynthesisUtterance(speechText);
-
-      // Set Language, Rate, Pitch
       utterance.lang = versionInfo.langCode || 'zh-TW';
       utterance.rate = playbackSpeedRef.current;
       utterance.pitch = speechPitchRef.current;
 
-      // Find matching voice if available
       const voices = synthRef.current.getVoices();
       if (voices.length > 0) {
         let matchingVoice: SpeechSynthesisVoice | undefined;
@@ -523,7 +554,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           setCurrentVerseIndex(nextIndex);
           speakVerse(nextIndex);
         } else {
-          // Reached end of chapter
           if (viewChapterRef.current < maxChapterRef.current) {
             shouldAutoPlayRef.current = true;
             setViewChapter((prev) => prev + 1);
@@ -545,7 +575,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
       utterance.onerror = (e) => {
         console.warn('SpeechSynthesis error:', e);
-        // Ignore canceled and interrupted errors on mobile browsers
         if (e.error !== 'canceled' && e.error !== 'interrupted') {
           setIsPlaying(false);
         }
@@ -554,28 +583,47 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       currentUtteranceRef.current = utterance;
       synthRef.current.speak(utterance);
     },
-    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName]
+    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName, chapterUnit, isPsalm]
   );
 
-  // Play button handler (1. 按下「朗讀」鍵可自動朗讀)
+  // Play button handler
   const handlePlay = useCallback(() => {
     setIsPlaying(true);
-    if (!synthRef.current) return;
 
+    if (isFhlMp3Mode) {
+      if (audioRef.current) {
+        audioRef.current.playbackRate = playbackSpeedRef.current;
+        audioRef.current.play().catch((err) => {
+          console.warn('MP3 Play error:', err);
+          setAudioError('無法播放音訊檔案，請檢查網路連線。');
+        });
+      }
+      return;
+    }
+
+    if (!synthRef.current) return;
     if (synthRef.current.paused && synthRef.current.speaking) {
       synthRef.current.resume();
       return;
     }
 
     speakVerse(currentVerseIndex);
-  }, [speakVerse, currentVerseIndex]);
+  }, [speakVerse, currentVerseIndex, isFhlMp3Mode]);
 
-  // Pause button handler (2. 按下「暫停鍵」則暫停朗讀)
+  // Pause button handler
   const handlePause = useCallback(() => {
     setIsPlaying(false);
+
+    if (isFhlMp3Mode) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
+
     if (!synthRef.current) return;
     synthRef.current.cancel();
-  }, []);
+  }, [isFhlMp3Mode]);
 
   // Toggle Play/Pause
   const handleTogglePlayPause = useCallback(() => {
@@ -586,12 +634,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   }, [isPlaying, handlePause, handlePlay]);
 
-  // Keyboard listener for Spacebar toggle play/pause (按下空白鍵等同按下暫停/播放按鈕)
+  // Spacebar hotkey listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.key === ' ') {
         const target = e.target as HTMLElement;
-        // Don't trigger when user is typing in text inputs or textareas
         if (
           target &&
           (target.tagName === 'INPUT' ||
@@ -611,8 +658,19 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
   }, [handleTogglePlayPause]);
 
-  // Reset to verse 0
+  // Reset / Restart Playback
   const handleRestart = () => {
+    if (isFhlMp3Mode) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        setAudioCurrentTime(0);
+        if (isPlaying) {
+          audioRef.current.play().catch((err) => console.warn(err));
+        }
+      }
+      return;
+    }
+
     if (synthRef.current) {
       synthRef.current.cancel();
     }
@@ -620,6 +678,45 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     if (isPlaying) {
       speakVerse(0);
     }
+  };
+
+  // MP3 Seek Slider Handler
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = Number(e.target.value);
+    setAudioCurrentTime(newTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
+  };
+
+  // MP3 Ended Handler: Auto Advance or Infinite Loop
+  const handleAudioEnded = () => {
+    if (viewChapterRef.current < maxChapterRef.current) {
+      shouldAutoPlayRef.current = true;
+      setViewChapter((prev) => prev + 1);
+    } else if (isInfiniteLoopRef.current) {
+      if (viewChapterRef.current === minChapterRef.current) {
+        if (audioRef.current) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.playbackRate = playbackSpeedRef.current;
+          audioRef.current.play().catch((err) => console.warn(err));
+        }
+      } else {
+        shouldAutoPlayRef.current = true;
+        setViewChapter(minChapterRef.current);
+      }
+    } else {
+      setIsPlaying(false);
+      setAudioCurrentTime(0);
+    }
+  };
+
+  // Format seconds to mm:ss
+  const formatTime = (secs: number) => {
+    if (isNaN(secs) || secs < 0) return '00:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   // Open copy dialog modal
@@ -633,7 +730,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     setCopySuccess(false);
   };
 
-  // Double click / double tap handler for verses (連續點擊兩次經文才會觸發，防止滑動或單擊誤觸)
+  // Double click / double tap handler for verses
   const handleVerseClick = (v: Verse, idx: number) => {
     const now = Date.now();
     const verseKey = `${v.chapter}:${v.verse}`;
@@ -675,12 +772,22 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     if (!selectedCopyVerse) return;
     const idx = selectedCopyVerse.index;
     setSelectedCopyVerse(null);
-    setCurrentVerseIndex(idx);
-    setIsPlaying(true);
-    speakVerse(idx);
+
+    if (isFhlMp3Mode) {
+      // In FHL MP3 mode, start full MP3 playback
+      setIsPlaying(true);
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch((err) => console.warn(err));
+      }
+    } else {
+      setCurrentVerseIndex(idx);
+      setIsPlaying(true);
+      speakVerse(idx);
+    }
   };
 
-  // Font size CSS mapping with tighter line spacing (簡化與緊湊行距)
+  // Font size CSS mapping
   const getFontSizeClass = () => {
     if (fontSize === 'normal') return 'text-sm md:text-base leading-snug';
     if (fontSize === 'large') return 'text-base md:text-lg leading-snug';
@@ -689,6 +796,37 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-3 md:py-4 space-y-3">
+      {/* Hidden Audio Element for FHL MP3 Playback */}
+      <audio
+        ref={audioRef}
+        src={fhlAudio.mp3}
+        preload="auto"
+        onTimeUpdate={() => {
+          if (audioRef.current) {
+            setAudioCurrentTime(audioRef.current.currentTime);
+          }
+        }}
+        onLoadedMetadata={() => {
+          if (audioRef.current) {
+            setAudioDuration(audioRef.current.duration);
+            audioRef.current.playbackRate = playbackSpeedRef.current;
+          }
+          setIsAudioBuffering(false);
+        }}
+        onWaiting={() => setIsAudioBuffering(true)}
+        onPlaying={() => {
+          setIsAudioBuffering(false);
+          setIsPlaying(true);
+        }}
+        onPause={() => setIsPlaying(false)}
+        onEnded={handleAudioEnded}
+        onError={(e) => {
+          console.warn('Audio tag loading error:', e);
+          setIsAudioBuffering(false);
+          setAudioError('音檔載入發生異常');
+        }}
+      />
+
       {/* TIER 3 (1) 朗讀模式選擇器 */}
       <div className="gold-card p-2.5 rounded-xl space-y-1.5">
         <div className="flex items-center justify-between pb-1 border-b border-yellow-800/40">
@@ -711,6 +849,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 if (val > endChapter) setEndChapter(val);
                 setViewChapter(val);
                 setTargetChapter(val);
+                setReadingMode('CHAPTERS');
               }}
               className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
             >
@@ -729,6 +868,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 const val = Number(e.target.value);
                 setEndChapter(val);
                 if (val < startChapter) setStartChapter(val);
+                setReadingMode('CHAPTERS');
               }}
               className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
             >
@@ -738,6 +878,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 </option>
               ))}
             </select>
+
+            {selectedVersion === 'CUV' && (
+              <span className="text-[11px] text-amber-400/90 font-medium ml-auto hidden sm:inline-block">
+                ✨ 以「{chapterUnit}」為主自動採用和合本真人錄音 MP3
+              </span>
+            )}
           </div>
 
           {/* 節 */}
@@ -778,65 +924,115 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 </option>
               ))}
             </select>
+
+            {readingMode === 'VERSES' && (
+              <span className="text-[11px] text-yellow-500/80 italic ml-auto hidden sm:inline-block">
+                （指定節數模式使用逐節語音朗讀）
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       {/* Main Reading Playbar */}
-      <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg flex flex-col md:flex-row items-center justify-between gap-2.5">
-        {/* Playback Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Main Play/Pause Button */}
-          <button
-            onClick={handleTogglePlayPause}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${
-              isPlaying
-                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-            }`}
-            title={isPlaying ? '暫停朗讀' : '開始朗讀'}
-          >
-            {isPlaying ? (
-              <>
-                <Pause className="w-3.5 h-3.5 fill-current" />
-                <span>暫停</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>開始</span>
-              </>
-            )}
-          </button>
+      <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Left Playback Control Buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            {/* Main Play/Pause Button */}
+            <button
+              onClick={handleTogglePlayPause}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                isPlaying
+                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+              }`}
+              title={isPlaying ? '暫停朗讀 (Space)' : '開始朗讀 (Space)'}
+            >
+              {isAudioBuffering ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>載入中...</span>
+                </>
+              ) : isPlaying ? (
+                <>
+                  <Pause className="w-3.5 h-3.5 fill-current" />
+                  <span>暫停</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>開始</span>
+                </>
+              )}
+            </button>
 
-          {/* Repeat Mode Toggle */}
-          <button
-            onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-              isInfiniteLoop
-                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-            }`}
-            title={isInfiniteLoop ? '無限重複中' : '單次朗讀'}
-          >
-            <Repeat className="w-3.5 h-3.5" />
-            <span>{isInfiniteLoop ? '循環' : '單次'}</span>
-          </button>
+            {/* Restart Button */}
+            <button
+              onClick={handleRestart}
+              className="px-2 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-zinc-900 border border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 transition-all cursor-pointer"
+              title="重頭開始播放"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">重播</span>
+            </button>
 
-          {/* 加書籤按鈕 */}
-          <button
-            onClick={handleToggleBookmark}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-              isBookmarkedState
-                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-            }`}
-            title={isBookmarkedState ? '移除書籤' : '加書籤'}
-          >
-            <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
-            <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
-          </button>
+            {/* Repeat Mode Toggle */}
+            <button
+              onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                isInfiniteLoop
+                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+              }`}
+              title={isInfiniteLoop ? '循環播放中' : '單次播放'}
+            >
+              <Repeat className="w-3.5 h-3.5" />
+              <span>{isInfiniteLoop ? '循環' : '單次'}</span>
+            </button>
+
+            {/* Bookmark Button */}
+            <button
+              onClick={handleToggleBookmark}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                isBookmarkedState
+                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+              }`}
+              title={isBookmarkedState ? '移除書籤' : '加書籤'}
+            >
+              <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
+              <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
+            </button>
+          </div>
         </div>
+
+        {/* In MP3 Mode: Chapter Audio Progress Bar & Timestamp */}
+        {isFhlMp3Mode && (
+          <div className="pt-1.5 border-t border-yellow-900/40 space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-mono text-amber-300 font-bold shrink-0 min-w-[36px]">
+                {formatTime(audioCurrentTime)}
+              </span>
+
+              <div className="relative flex-1 flex items-center">
+                <input
+                  type="range"
+                  min={0}
+                  max={audioDuration || 100}
+                  step={0.1}
+                  value={audioCurrentTime}
+                  onChange={handleSeek}
+                  className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-400 hover:accent-amber-300"
+                />
+              </div>
+
+              <span className="text-[11px] font-mono text-zinc-400 shrink-0 min-w-[36px] text-right">
+                {audioDuration > 0 ? formatTime(audioDuration) : '--:--'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Scripture Verses Display List with Swipe Gesture Support */}
@@ -854,7 +1050,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
                 viewChapter <= minChapter
                   ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 cursor-pointer'
               }`}
               title={`上一${chapterUnit} (向右滑動)`}
             >
@@ -872,7 +1068,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
                 viewChapter >= maxChapter
                   ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 cursor-pointer'
               }`}
               title={`下一${chapterUnit} (向左滑動)`}
             >
@@ -881,7 +1077,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             </button>
           </div>
         </div>
-
 
         {isLoadingVerses ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
@@ -897,7 +1092,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         ) : (
           <div className="space-y-0.5">
             {activeVerses.map((v, idx) => {
-              const isActive = isPlaying && currentVerseIndex === idx;
+              const isActive = !isFhlMp3Mode && isPlaying && currentVerseIndex === idx;
 
               return (
                 <div
@@ -955,7 +1150,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               </h3>
               <button
                 onClick={() => setSelectedCopyVerse(null)}
-                className="text-zinc-400 hover:text-zinc-100 p-1 rounded-lg hover:bg-zinc-800/60 transition-colors"
+                className="text-zinc-400 hover:text-zinc-100 p-1 rounded-lg hover:bg-zinc-800/60 transition-colors cursor-pointer"
                 title="關閉"
               >
                 <X className="w-4 h-4" />
@@ -975,23 +1170,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             <div className="flex items-center justify-between pt-2 border-t border-yellow-900/40">
               <button
                 onClick={handleStartReadingSelected}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-300 border border-amber-500/40 hover:bg-yellow-950/60 flex items-center gap-1.5 transition-all"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-300 border border-amber-500/40 hover:bg-yellow-950/60 flex items-center gap-1.5 transition-all cursor-pointer"
                 title="從此節開始朗讀"
               >
                 <Play className="w-3.5 h-3.5 text-amber-400" />
-                <span>從此節朗讀</span>
+                <span>{isFhlMp3Mode ? '開始整章朗讀' : '從此節朗讀'}</span>
               </button>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedCopyVerse(null)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 hover:bg-zinc-800/60 transition-all"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 hover:bg-zinc-800/60 transition-all cursor-pointer"
                 >
                   取消
                 </button>
                 <button
                   onClick={handleCopyVerseText}
-                  className="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all"
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   {copySuccess ? (
                     <>

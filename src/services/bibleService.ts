@@ -170,3 +170,21 @@ function getOfflineFallbackVerses(
   }
   return fallbackVerses;
 }
+
+/**
+ * Returns the FHL full-chapter authentic MP3 and OGG audio stream URLs.
+ * Source: 和合本有聲聖經網站 (https://bible.fhl.net/new/audio_hb.php)
+ * Media server: https://media.fhl.net/unv1/{bookNumber}/{bookNumber}_{chapterPad3}.mp3
+ */
+export function getFhlChapterAudioUrls(bookNumber: number, chapter: number): {
+  mp3: string;
+  ogg: string;
+  pageUrl: string;
+} {
+  const paddedChapter = String(chapter).padStart(3, '0');
+  return {
+    mp3: `https://media.fhl.net/unv1/${bookNumber}/${bookNumber}_${paddedChapter}.mp3`,
+    ogg: `https://media.fhl.net/unv1/${bookNumber}/${bookNumber}_${paddedChapter}.ogg`,
+    pageUrl: `https://bible.fhl.net/new/listenhb.php?version=0&bid=${bookNumber}&chap=${chapter}`,
+  };
+}

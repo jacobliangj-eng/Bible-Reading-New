@@ -324,18 +324,18 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
           </p>
         </div>
 
-        {/* 磐石有聲事工 MP3 資訊 */}
+        {/* 和合本有聲聖經 MP3 與語音說明 */}
         {selectedVersion === 'CUV' && (
           <div className="bg-yellow-950/40 border border-yellow-700/50 p-3.5 rounded-xl space-y-1.5 text-xs text-zinc-300">
             <div className="flex items-center gap-1.5 font-bold text-amber-300">
               <Volume2 className="w-4 h-4 text-amber-400" />
-              <span>磐石有聲事工《中文和合本有聲聖經》說明</span>
+              <span>信望愛《中文和合本有聲聖經》真人錄音說明</span>
             </div>
             <p className="text-[11px] text-zinc-300 leading-relaxed">
-              若您想收聽由<strong>磐石有聲事工（王濤峰弟兄國語朗讀）</strong>的整章/整卷真人錄音 MP3 檔案，您可前往「磐石有聲聖經網站」或使用相應的 Audio Bible App 下載完整的 MP3 音檔。
+              當您在<strong>中文新標點和合本</strong>中設定為以「章」或「全卷」為主的朗讀模式時，系統將自動串接<strong>和合本有聲聖經（信望愛資訊網 bible.fhl.net）</strong>整章真人原聲錄音 MP3 播放，並支援即時下載與速度調節。
             </p>
             <p className="text-[10px] text-yellow-500/80 italic">
-              （註：本網頁為實現逐節點擊、高亮字幕同步與無限循環，乃使用系統語音引擎即時生成發音。）
+              （註：若切換至「節」為主的指定經文範圍朗讀，則使用裝置語音合成引擎精確朗讀指定節數。）
             </p>
           </div>
         )}

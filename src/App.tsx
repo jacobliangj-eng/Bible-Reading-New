@@ -58,8 +58,17 @@ export default function App() {
 
     const checkTimer = () => {
       if (Date.now() >= sleepTimerEndTime) {
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
+        if (typeof window !== 'undefined') {
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+          }
+          document.querySelectorAll('audio').forEach((a) => {
+            try {
+              a.pause();
+            } catch {
+              // Ignore pause errors
+            }
+          });
         }
         setSleepTimerEndTime(null);
         alert('⏰ 睡眠定時時間已到，聖經朗讀已自動停止。祝您安睡，晚安！');
