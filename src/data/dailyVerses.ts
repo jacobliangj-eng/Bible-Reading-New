@@ -435,26 +435,32 @@ export function formatReferenceForSpeech(ref: string, version: BibleVersion = 'C
     // Chinese format: Extract Chinese book name before any English letters/numbers
     const chineseBookMatch = ref.match(/^[\u4e00-\u9fa5]+/);
     const bookName = chineseBookMatch ? chineseBookMatch[0] : ref.split(/\s+\d+/)[0] || '';
+    const isPsalm = bookName.includes('詩篇');
+    const chapterUnit = isPsalm ? '篇' : '章';
 
     const versePart = endVerse
-      ? `第${chapter}章第${startVerse}至${endVerse}節`
-      : `第${chapter}章第${startVerse}節`;
+      ? `第${chapter}${chapterUnit}第${startVerse}至${endVerse}節`
+      : `第${chapter}${chapterUnit}第${startVerse}節`;
 
     return `${bookName}${versePart}`;
   } else if (version === 'LSG') {
     // French format
     const bookName = ref.split(/\s+\d+:/)[0] || '';
+    const isPsalm = bookName.toLowerCase().includes('psaume');
+    const chapterWord = isPsalm ? 'psaume' : 'chapitre';
     const versePart = endVerse
-      ? `chapitre ${chapter} versets ${startVerse} à ${endVerse}`
-      : `chapitre ${chapter} verset ${startVerse}`;
+      ? `${chapterWord} ${chapter} versets ${startVerse} à ${endVerse}`
+      : `${chapterWord} ${chapter} verset ${startVerse}`;
 
     return `${bookName} ${versePart}`;
   } else {
     // English / KJV format
     const bookName = ref.split(/\s+\d+:/)[0] || '';
+    const isPsalm = bookName.toLowerCase().includes('psalm');
+    const chapterWord = isPsalm ? 'psalm' : 'chapter';
     const versePart = endVerse
-      ? `chapter ${chapter} verses ${startVerse} to ${endVerse}`
-      : `chapter ${chapter} verse ${startVerse}`;
+      ? `${chapterWord} ${chapter} verses ${startVerse} to ${endVerse}`
+      : `${chapterWord} ${chapter} verse ${startVerse}`;
 
     return `${bookName} ${versePart}`;
   }

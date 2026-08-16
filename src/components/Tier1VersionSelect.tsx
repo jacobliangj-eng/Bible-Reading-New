@@ -267,7 +267,11 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                     </div>
 
                     <h4 className={`text-sm font-bold text-amber-100 group-hover:text-amber-300 transition-colors ${b.version === 'KJV' || b.version === 'LSG' ? 'font-calibri' : ''}`}>
-                      {b.bookName} 第 {b.chapter} 章
+                      {b.version === 'KJV'
+                        ? `${b.bookName} ${b.bookId === 'PSA' ? 'Psalm' : 'Chapter'} ${b.chapter}`
+                        : b.version === 'LSG'
+                        ? `${b.bookName} ${b.bookId === 'PSA' ? 'Psaume' : 'Chapitre'} ${b.chapter}`
+                        : `${b.bookName} 第 ${b.chapter} ${b.bookId === 'PSA' || b.bookName.includes('詩篇') ? '篇' : '章'}`}
                       {isVerseMode && b.startVerse !== undefined && b.endVerse !== undefined ? (
                         <span className="ml-1 text-amber-300 font-normal text-xs">
                           (第 {b.startVerse}~{b.endVerse} 節)

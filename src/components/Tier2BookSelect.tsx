@@ -203,7 +203,7 @@ const BookCard: React.FC<BookCardProps> = ({ book, selectedVersion, onSelect }) 
           #{book.number}
         </span>
         <span className="text-[10px] text-zinc-400">
-          {book.chaptersCount} 章
+          {book.chaptersCount} {selectedVersion === 'KJV' ? (book.id === 'PSA' ? 'psalms' : 'chs') : selectedVersion === 'LSG' ? (book.id === 'PSA' ? 'psaumes' : 'chaps') : (book.id === 'PSA' ? '篇' : '章')}
         </span>
       </div>
 
