@@ -19,18 +19,12 @@ import {
   Check,
   X,
   Bookmark,
-  Download,
-  Headphones,
-  Radio,
-  Sparkles,
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import { fetchChapterVerses } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
-import { getRockAudioUrls, ROCK_AUDIO_INFO } from '../services/rockAudioService';
-import { RockAudioModal } from './RockAudioModal';
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
@@ -193,46 +187,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const sV = Math.min(startVerseNum, endVerseNum);
   const eV = Math.max(startVerseNum, endVerseNum);
 
-  // Audio Engine: 'ROCK_MP3' | 'TTS'
-  // When in CUV and chapter-based reading mode (整章/全卷), defaults to 磐石有聲事工 (王濤峰弟兄國語朗讀) MP3
-  const [audioEngine, setAudioEngine] = useState<'ROCK_MP3' | 'TTS'>(
-    selectedVersion === 'CUV' && !isVerseMode ? 'ROCK_MP3' : 'TTS'
-  );
-
-  // Sync audioEngine when version or reading mode changes
-  useEffect(() => {
-    if (selectedVersion === 'CUV' && !isVerseMode) {
-      setAudioEngine('ROCK_MP3');
-    } else {
-      setAudioEngine('TTS');
-    }
-  }, [selectedVersion, isVerseMode]);
-
-  // Rock Audio Modal & Local File State
-  const [isRockAudioModalOpen, setIsRockAudioModalOpen] = useState<boolean>(false);
-  const [localMp3Url, setLocalMp3Url] = useState<string | null>(null);
-
-  // HTML5 Audio Reference for MP3 playback
-  const mp3AudioRef = useRef<HTMLAudioElement | null>(null);
-  const [mp3CurrentTime, setMp3CurrentTime] = useState<number>(0);
-  const [mp3Duration, setMp3Duration] = useState<number>(0);
-  const [mp3CandidateIdx, setMp3CandidateIdx] = useState<number>(0);
-  const [mp3ErrorMessage, setMp3ErrorMessage] = useState<string | null>(null);
-
-  const formatAudioTime = (seconds: number) => {
-    if (isNaN(seconds) || seconds < 0) return '00:00';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-
-  const handleMp3Seek = (newTime: number) => {
-    if (mp3AudioRef.current) {
-      mp3AudioRef.current.currentTime = newTime;
-      setMp3CurrentTime(newTime);
-    }
-  };
-
   const [isBookmarkedState, setIsBookmarkedState] = useState<boolean>(false);
 
   useEffect(() => {
@@ -345,118 +299,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     playbackSpeedRef.current = playbackSpeed;
   }, [playbackSpeed]);
 
-  // MP3 Source URL calculation
-  const rockAudioTrack = React.useMemo(() => {
-    return getRockAudioUrls(selectedBook.number, viewChapter, bookName);
-  }, [selectedBook.number, viewChapter, bookName]);
-
-  const activeMp3Source = localMp3Url || (
-    mp3CandidateIdx === 0
-      ? rockAudioTrack.url
-      : rockAudioTrack.fallbackUrls[mp3CandidateIdx - 1] || rockAudioTrack.url
-  );
-
-  // Initialize and bind audio element listeners
-  useEffect(() => {
-    const audio = new Audio();
-    mp3AudioRef.current = audio;
-
-    const handleTimeUpdate = () => {
-      setMp3CurrentTime(audio.currentTime);
-    };
-
-    const handleLoadedMetadata = () => {
-      setMp3Duration(audio.duration || 0);
-      setMp3ErrorMessage(null);
-    };
-
-    const handlePlay = () => {
-      setIsPlaying(true);
-    };
-
-    const handlePause = () => {
-      setIsPlaying(false);
-    };
-
-    const handleEnded = () => {
-      // Advance to next chapter if within range
-      if (viewChapterRef.current < maxChapterRef.current) {
-        shouldAutoPlayRef.current = true;
-        setViewChapter((prev) => prev + 1);
-      } else if (isInfiniteLoopRef.current) {
-        if (viewChapterRef.current === minChapterRef.current) {
-          audio.currentTime = 0;
-          audio.play().catch(() => {});
-        } else {
-          shouldAutoPlayRef.current = true;
-          setViewChapter(minChapterRef.current);
-        }
-      } else {
-        setIsPlaying(false);
-      }
-    };
-
-    const handleError = () => {
-      console.warn('Audio MP3 loading error, checking fallback sources...');
-      setMp3CandidateIdx((prev) => {
-        if (prev < rockAudioTrack.fallbackUrls.length) {
-          return prev + 1;
-        } else {
-          setMp3ErrorMessage('線上 MP3 音訊載入受阻，您可點擊「下載 MP3」前往「磐石有聲聖經網站」下載音檔或切換為逐節語音合成 (TTS)。');
-          setIsPlaying(false);
-          return prev;
-        }
-      });
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError);
-
-    return () => {
-      audio.pause();
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', handleError);
-      mp3AudioRef.current = null;
-    };
-  }, []);
-
-  // Update MP3 audio src when chapter or active source changes
-  useEffect(() => {
-    const audio = mp3AudioRef.current;
-    if (!audio) return;
-
-    if (audioEngine === 'ROCK_MP3') {
-      audio.src = activeMp3Source;
-      audio.playbackRate = playbackSpeedRef.current;
-      setMp3CurrentTime(0);
-
-      if (shouldAutoPlayRef.current) {
-        shouldAutoPlayRef.current = false;
-        audio.play().catch((err) => {
-          console.warn('AutoPlay prevented:', err);
-        });
-      }
-    } else {
-      audio.pause();
-    }
-  }, [activeMp3Source, audioEngine, viewChapter]);
-
-  // Sync playback speed to audio element
-  useEffect(() => {
-    if (mp3AudioRef.current) {
-      mp3AudioRef.current.playbackRate = playbackSpeed;
-    }
-  }, [playbackSpeed]);
-
-  // Sync speechPitch to ref
   useEffect(() => {
     speechPitchRef.current = speechPitch;
   }, [speechPitch]);
@@ -542,9 +384,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       if (synthRef.current) {
         synthRef.current.cancel();
       }
-      if (mp3AudioRef.current) {
-        mp3AudioRef.current.pause();
-      }
       shouldAutoPlayRef.current = isPlaying;
       setViewChapter((prev) => prev - 1);
     }
@@ -554,9 +393,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     if (viewChapter < maxChapter) {
       if (synthRef.current) {
         synthRef.current.cancel();
-      }
-      if (mp3AudioRef.current) {
-        mp3AudioRef.current.pause();
       }
       shouldAutoPlayRef.current = isPlaying;
       setViewChapter((prev) => prev + 1);
@@ -724,17 +560,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // Play button handler (1. 按下「朗讀」鍵可自動朗讀)
   const handlePlay = useCallback(() => {
     setIsPlaying(true);
-
-    if (audioEngine === 'ROCK_MP3' && mp3AudioRef.current) {
-      if (synthRef.current) {
-        synthRef.current.cancel();
-      }
-      mp3AudioRef.current.play().catch((err) => {
-        console.warn('MP3 playback failed:', err);
-      });
-      return;
-    }
-
     if (!synthRef.current) return;
 
     if (synthRef.current.paused && synthRef.current.speaking) {
@@ -743,18 +568,14 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
 
     speakVerse(currentVerseIndex);
-  }, [audioEngine, speakVerse, currentVerseIndex]);
+  }, [speakVerse, currentVerseIndex]);
 
   // Pause button handler (2. 按下「暫停鍵」則暫停朗讀)
   const handlePause = useCallback(() => {
     setIsPlaying(false);
-    if (audioEngine === 'ROCK_MP3' && mp3AudioRef.current) {
-      mp3AudioRef.current.pause();
-    }
-    if (synthRef.current) {
-      synthRef.current.cancel();
-    }
-  }, [audioEngine]);
+    if (!synthRef.current) return;
+    synthRef.current.cancel();
+  }, []);
 
   // Toggle Play/Pause
   const handleTogglePlayPause = useCallback(() => {
@@ -790,22 +611,14 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
   }, [handleTogglePlayPause]);
 
-  // Reset to verse 0 / start of chapter
+  // Reset to verse 0
   const handleRestart = () => {
     if (synthRef.current) {
       synthRef.current.cancel();
     }
-    if (audioEngine === 'ROCK_MP3' && mp3AudioRef.current) {
-      mp3AudioRef.current.currentTime = 0;
-      setMp3CurrentTime(0);
-      if (isPlaying) {
-        mp3AudioRef.current.play().catch(() => {});
-      }
-    } else {
-      setCurrentVerseIndex(0);
-      if (isPlaying) {
-        speakVerse(0);
-      }
+    setCurrentVerseIndex(0);
+    if (isPlaying) {
+      speakVerse(0);
     }
   };
 
@@ -972,114 +785,58 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       {/* Main Reading Playbar */}
       <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg flex flex-col md:flex-row items-center justify-between gap-2.5">
         {/* Playback Controls */}
-        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-between md:justify-start">
-          {/* Left Buttons Group */}
-          <div className="flex items-center gap-2">
-            {/* Main Play/Pause Button */}
-            <button
-              onClick={handleTogglePlayPause}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${
-                isPlaying
-                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-              }`}
-              title={isPlaying ? '暫停朗讀' : '開始朗讀'}
-            >
-              {isPlaying ? (
-                <>
-                  <Pause className="w-3.5 h-3.5 fill-current" />
-                  <span>暫停</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>開始</span>
-                </>
-              )}
-            </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Main Play/Pause Button */}
+          <button
+            onClick={handleTogglePlayPause}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all ${
+              isPlaying
+                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+            }`}
+            title={isPlaying ? '暫停朗讀' : '開始朗讀'}
+          >
+            {isPlaying ? (
+              <>
+                <Pause className="w-3.5 h-3.5 fill-current" />
+                <span>暫停</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>開始</span>
+              </>
+            )}
+          </button>
 
-            {/* Repeat Mode Toggle */}
-            <button
-              onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-                isInfiniteLoop
-                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-              }`}
-              title={isInfiniteLoop ? '無限重複中' : '單次朗讀'}
-            >
-              <Repeat className="w-3.5 h-3.5" />
-              <span>{isInfiniteLoop ? '循環' : '單次'}</span>
-            </button>
+          {/* Repeat Mode Toggle */}
+          <button
+            onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
+              isInfiniteLoop
+                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+            }`}
+            title={isInfiniteLoop ? '無限重複中' : '單次朗讀'}
+          >
+            <Repeat className="w-3.5 h-3.5" />
+            <span>{isInfiniteLoop ? '循環' : '單次'}</span>
+          </button>
 
-            {/* 加書籤按鈕 */}
-            <button
-              onClick={handleToggleBookmark}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-                isBookmarkedState
-                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
-              }`}
-              title={isBookmarkedState ? '移除書籤' : '加書籤'}
-            >
-              <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
-              <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
-            </button>
-          </div>
-
-          {/* CUV Rock Audio Ministry MP3 / TTS Switcher & Download button */}
-          {selectedVersion === 'CUV' && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-950/70 border border-yellow-700/50 text-[11px]">
-                <Headphones className="w-3 h-3 text-amber-400 shrink-0" />
-                <span className="text-amber-200 font-bold hidden sm:inline">
-                  {audioEngine === 'ROCK_MP3' ? '磐石有聲（王濤峰弟兄真人朗讀）' : '語音合成 (TTS)'}
-                </span>
-                <span className="text-amber-200 font-bold sm:hidden">
-                  {audioEngine === 'ROCK_MP3' ? '磐石真人MP3' : '語音TTS'}
-                </span>
-                {!isVerseMode && (
-                  <button
-                    onClick={() => setAudioEngine(audioEngine === 'ROCK_MP3' ? 'TTS' : 'ROCK_MP3')}
-                    className="text-[10px] text-amber-400 hover:text-amber-200 underline font-bold ml-1"
-                    title="切換音訊來源"
-                  >
-                    {audioEngine === 'ROCK_MP3' ? '改用TTS' : '改用真人MP3'}
-                  </button>
-                )}
-              </div>
-
-              {audioEngine === 'ROCK_MP3' && (
-                <button
-                  onClick={() => setIsRockAudioModalOpen(true)}
-                  className="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 bg-yellow-900/50 border border-yellow-600/50 text-amber-300 hover:bg-yellow-800 hover:border-amber-400 transition-all"
-                  title="前往磐石有聲聖經網站下載 MP3 音檔"
-                >
-                  <Download className="w-3 h-3 text-amber-400" />
-                  <span>下載MP3</span>
-                </button>
-              )}
-            </div>
-          )}
+          {/* 加書籤按鈕 */}
+          <button
+            onClick={handleToggleBookmark}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
+              isBookmarkedState
+                ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+            }`}
+            title={isBookmarkedState ? '移除書籤' : '加書籤'}
+          >
+            <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
+            <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
+          </button>
         </div>
-
-        {/* Audio Scrubber Timeline (when in MP3 mode) */}
-        {audioEngine === 'ROCK_MP3' && (
-          <div className="flex items-center gap-2 w-full md:w-auto flex-1 max-w-sm px-1 text-[11px] text-amber-300/80 font-mono">
-            <span className="shrink-0">{formatAudioTime(mp3CurrentTime)}</span>
-            <input
-              type="range"
-              min={0}
-              max={mp3Duration || 100}
-              step={0.5}
-              value={mp3CurrentTime}
-              onChange={(e) => handleMp3Seek(Number(e.target.value))}
-              className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
-              title="拖曳調整播放進度"
-            />
-            <span className="shrink-0">{formatAudioTime(mp3Duration)}</span>
-          </div>
-        )}
       </div>
 
       {/* Scripture Verses Display List with Swipe Gesture Support */}
@@ -1251,54 +1008,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               </div>
             </div>
           </div>
-        </div>
-      )}
-      {/* Rock Audio Ministry Modal */}
-      <RockAudioModal
-        isOpen={isRockAudioModalOpen}
-        onClose={() => setIsRockAudioModalOpen(false)}
-        bookName={bookName}
-        chapter={viewChapter}
-        chapterUnit={chapterUnit}
-        onLocalFileSelected={(file) => {
-          const url = URL.createObjectURL(file);
-          setLocalMp3Url(url);
-          setAudioEngine('ROCK_MP3');
-          setMp3ErrorMessage(null);
-        }}
-      />
-
-      {/* MP3 Error / Notice Banner */}
-      {mp3ErrorMessage && audioEngine === 'ROCK_MP3' && (
-        <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-md z-40 bg-zinc-950 border border-yellow-600/80 p-3 rounded-xl shadow-2xl text-amber-200 text-xs flex items-start justify-between gap-2">
-          <div className="space-y-1">
-            <p className="font-bold text-amber-300">提示：</p>
-            <p className="text-zinc-300 leading-snug">{mp3ErrorMessage}</p>
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={() => setIsRockAudioModalOpen(true)}
-                className="text-[11px] font-bold text-amber-400 hover:underline"
-              >
-                前往下載 MP3
-              </button>
-              <span className="text-zinc-600">|</span>
-              <button
-                onClick={() => {
-                  setAudioEngine('TTS');
-                  setMp3ErrorMessage(null);
-                }}
-                className="text-[11px] font-bold text-amber-400 hover:underline"
-              >
-                切換為語音合成 (TTS)
-              </button>
-            </div>
-          </div>
-          <button
-            onClick={() => setMp3ErrorMessage(null)}
-            className="text-zinc-400 hover:text-white p-1"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
     </div>
