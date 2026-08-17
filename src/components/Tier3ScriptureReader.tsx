@@ -878,12 +878,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 </option>
               ))}
             </select>
-
-            {selectedVersion === 'CUV' && (
-              <span className="text-[11px] text-amber-400/90 font-medium ml-auto hidden sm:inline-block">
-                ✨ 以「{chapterUnit}」為主自動採用和合本真人錄音 MP3
-              </span>
-            )}
           </div>
 
           {/* 節 */}
