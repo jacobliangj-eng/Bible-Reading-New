@@ -325,6 +325,19 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
   }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialChapter, initialStartVerse, initialEndVerse]);
 
+  // Auto-scroll active verse or top verse into view
+  useEffect(() => {
+    if (activeVerses.length > 0) {
+      const targetEl = verseRefs.current[currentVerseIndex] || verseRefs.current[0];
+      if (targetEl) {
+        targetEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+        });
+      }
+    }
+  }, [currentVerseIndex, viewChapter, activeVerses.length]);
+
   // Fetch Verses for the single current viewChapter asynchronously
   useEffect(() => {
     let isCancelled = false;
@@ -354,6 +367,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           if (synthRef.current) {
             synthRef.current.cancel();
           }
+
+          // Ensure view scrolls to the first verse of the new chapter
+          setTimeout(() => {
+            if (verseRefs.current[0]) {
+              verseRefs.current[0]?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+            }
+          }, 60);
 
           if (shouldAutoPlayRef.current) {
             shouldAutoPlayRef.current = false;
@@ -1086,7 +1109,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         ) : (
           <div className="space-y-0.5">
             {activeVerses.map((v, idx) => {
-              const isActive = !isFhlMp3Mode && isPlaying && currentVerseIndex === idx;
+              const isActive = isPlaying && currentVerseIndex === idx;
 
               return (
                 <div

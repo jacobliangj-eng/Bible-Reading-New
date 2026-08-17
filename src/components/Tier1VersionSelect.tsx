@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2 } from 'lucide-react';
+import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2, AlertTriangle, X } from 'lucide-react';
 import { BibleVersion, Bookmark as BookmarkType } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { getDailyVerse, getRandomVerse, formatReferenceForSpeech, fixChineseTTSPronunciation, DailyVerse } from '../data/dailyVerses';
@@ -33,6 +33,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   const [bookmarks, setBookmarks] = useState<BookmarkType[]>([]);
+  const [bookmarkToDelete, setBookmarkToDelete] = useState<BookmarkType | null>(null);
 
   useEffect(() => {
     setBookmarks(getBookmarks());
@@ -56,10 +57,20 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     };
   }, []);
 
-  const handleDeleteBookmark = (id: string, e: React.MouseEvent) => {
+  const handleRequestDelete = (bookmark: BookmarkType, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = removeBookmark(id);
+    setBookmarkToDelete(bookmark);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!bookmarkToDelete) return;
+    const updated = removeBookmark(bookmarkToDelete.id);
     setBookmarks(updated);
+    setBookmarkToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setBookmarkToDelete(null);
   };
 
   const handleChangeVerse = (e?: React.MouseEvent) => {
@@ -293,8 +304,8 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                     </span>
 
                     <button
-                      onClick={(e) => handleDeleteBookmark(b.id, e)}
-                      className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+                      onClick={(e) => handleRequestDelete(b, e)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-950/50 transition-colors cursor-pointer"
                       title="刪除此書籤"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -306,6 +317,73 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
           </div>
         )}
       </div>
+
+      {/* 刪除書籤確認彈窗 (Delete Confirmation Modal) */}
+      {bookmarkToDelete && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+          onClick={handleCancelDelete}
+        >
+          <div
+            className="gold-card max-w-sm w-full p-5 rounded-2xl border border-yellow-600/50 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-yellow-800/40 pb-3">
+              <h3 className="text-sm md:text-base font-bold text-amber-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span>刪除書籤確認</span>
+              </h3>
+              <button
+                onClick={handleCancelDelete}
+                className="text-zinc-400 hover:text-zinc-100 p-1 rounded-lg hover:bg-zinc-800/60 transition-colors cursor-pointer"
+                title="取消"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                確定要刪除以下經文書籤嗎？此操作無法復原。
+              </p>
+              <div className="bg-zinc-950/90 p-3 rounded-xl border border-yellow-900/60 text-xs text-amber-200 font-serif">
+                <div className="font-bold text-amber-300 mb-1">
+                  【{bookmarkToDelete.bookName}{' '}
+                  {bookmarkToDelete.version === 'KJV'
+                    ? `${bookmarkToDelete.bookId === 'PSA' ? 'Psalm' : 'Chapter'} ${bookmarkToDelete.chapter}`
+                    : bookmarkToDelete.version === 'LSG'
+                    ? `${bookmarkToDelete.bookId === 'PSA' ? 'Psaume' : 'Chapitre'} ${bookmarkToDelete.chapter}`
+                    : `第 ${bookmarkToDelete.chapter} ${bookmarkToDelete.bookId === 'PSA' || bookmarkToDelete.bookName.includes('詩篇') ? '篇' : '章'}`}
+                  {bookmarkToDelete.startVerse !== undefined && bookmarkToDelete.endVerse !== undefined
+                    ? ` (第 ${bookmarkToDelete.startVerse}~${bookmarkToDelete.endVerse} 節)`
+                    : ''}】
+                </div>
+                {bookmarkToDelete.previewText && (
+                  <p className="text-zinc-400 text-[11px] line-clamp-2 italic">
+                    {bookmarkToDelete.previewText}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-yellow-900/40">
+              <button
+                onClick={handleCancelDelete}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 hover:text-zinc-100 border border-zinc-700/60 hover:bg-zinc-800/60 transition-all cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white shadow-md shadow-red-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>確認刪除</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
