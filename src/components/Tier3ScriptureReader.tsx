@@ -113,7 +113,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentVerseIndex, setCurrentVerseIndex] = useState<number>(0);
-  const [localPlaybackSpeed, setLocalPlaybackSpeed] = useState<number>(1.0);
+  const [localPlaybackSpeed, setLocalPlaybackSpeed] = useState<number>(isFhlMp3Mode ? 1.25 : 1.0);
   const [isInfiniteLoop, setIsInfiniteLoop] = useState<boolean>(false);
   const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
@@ -121,6 +121,21 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const setPlaybackSpeed = propSetSpeed ?? setLocalPlaybackSpeed;
   const fontSize = propFontSize ?? localFontSize;
   const setFontSize = propSetFontSize ?? setLocalFontSize;
+
+  // Track FHL MP3 mode to auto-set initial reading speed (1.25x for FHL MP3, 1.0x otherwise)
+  const prevIsFhlMp3ModeRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    if (prevIsFhlMp3ModeRef.current !== isFhlMp3Mode) {
+      const initialSpeed = isFhlMp3Mode ? 1.25 : 1.0;
+      setPlaybackSpeed(initialSpeed);
+      playbackSpeedRef.current = initialSpeed;
+      if (audioRef.current) {
+        audioRef.current.playbackRate = initialSpeed;
+      }
+      prevIsFhlMp3ModeRef.current = isFhlMp3Mode;
+    }
+  }, [isFhlMp3Mode, setPlaybackSpeed]);
 
   // Currently loaded verses array for display
   const [activeVerses, setActiveVerses] = useState<Verse[]>([]);
