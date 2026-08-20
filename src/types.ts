@@ -66,3 +66,14 @@ export interface Bookmark {
   endVerse?: number;
   readingMode?: ReadingMode;
 }
+
+export interface BibleSearchResult {
+  bookId: string;
+  bookName: string;
+  bookNumber: number;
+  testament: Testament;
+  chapter: number;
+  verse: number;
+  text: string;
+  version: BibleVersion;
+}

@@ -154,6 +154,20 @@ export default function App() {
     }
   };
 
+  const handleNavigateToScripture = (bookId: string, chapter: number) => {
+    const book = BIBLE_BOOKS.find((b) => b.id === bookId);
+    if (book) {
+      setSelectedBook(book);
+      setInitialChapter(chapter);
+      setInitialVerse(undefined);
+      setInitialReadingMode('CHAPTERS');
+      setInitialStartVerse(undefined);
+      setInitialEndVerse(undefined);
+      setCurrentTier('TIER3');
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  };
+
   const handleGoHome = () => {
     setCurrentTier('TIER1');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -184,6 +198,7 @@ export default function App() {
             onSelectVersion={handleSelectVersion}
             onOpenBookmark={handleOpenBookmark}
             onOpenLastRead={handleOpenLastRead}
+            onNavigateToScripture={handleNavigateToScripture}
             playbackSpeed={playbackSpeed}
             speechPitch={speechPitch}
             selectedVoiceName={selectedVoiceName}

@@ -5,12 +5,14 @@ import { VERSIONS } from '../data/bibleBooks';
 import { getDailyVerse, getRandomVerse, formatReferenceForSpeech, fixChineseTTSPronunciation, DailyVerse } from '../data/dailyVerses';
 import { getBookmarks, removeBookmark } from '../services/bookmarkService';
 import { getLastReadRecord, LastReadRecord } from '../services/lastReadService';
+import { BibleSearchSection } from './BibleSearchSection';
 
 interface Tier1VersionSelectProps {
   selectedVersion: BibleVersion;
   onSelectVersion: (version: BibleVersion) => void;
   onOpenBookmark?: (bookmark: BookmarkType) => void;
   onOpenLastRead?: (record: LastReadRecord) => void;
+  onNavigateToScripture?: (bookId: string, chapter: number) => void;
   playbackSpeed?: number;
   speechPitch?: number;
   selectedVoiceName?: string;
@@ -21,6 +23,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
   onSelectVersion,
   onOpenBookmark,
   onOpenLastRead,
+  onNavigateToScripture,
   playbackSpeed = 1.0,
   speechPitch = 1.0,
   selectedVoiceName = '',
@@ -231,6 +234,16 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
           </button>
         </div>
       )}
+
+      {/* Bible Fast Full-Text Search Section */}
+      <BibleSearchSection
+        selectedVersion={selectedVersion}
+        onNavigateToScripture={(bookId, chapter) => {
+          if (onNavigateToScripture) {
+            onNavigateToScripture(bookId, chapter);
+          }
+        }}
+      />
 
       {/* Daily Verse Card */}
       <div

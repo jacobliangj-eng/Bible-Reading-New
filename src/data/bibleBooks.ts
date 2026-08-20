@@ -12,7 +12,7 @@ export const VERSIONS: Record<string, VersionInfo> = {
   },
   KJV: {
     id: 'KJV',
-    name: 'King James Version',
+    name: '英文 King James Version',
     nativeName: 'English / King James Version',
     language: 'English',
     langCode: 'en-US',
@@ -21,7 +21,7 @@ export const VERSIONS: Record<string, VersionInfo> = {
   },
   LSG: {
     id: 'LSG',
-    name: 'La Bible Segond',
+    name: '法文 La Bible Segond',
     nativeName: 'Français / Louis Segond',
     language: 'Français',
     langCode: 'fr-FR',
