@@ -3,7 +3,7 @@ import { BibleBook, VersionInfo } from '../types';
 export const VERSIONS: Record<string, VersionInfo> = {
   CUV: {
     id: 'CUV',
-    name: '中文新標點和合本',
+    name: '中文 新標點和合本',
     nativeName: '繁體中文 / 新標點和合本',
     language: '中文',
     langCode: 'zh-TW',
