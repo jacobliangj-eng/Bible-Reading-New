@@ -20,11 +20,13 @@ import { VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import { fetchChapterVerses, getFhlChapterAudioUrls } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
+import { saveLastReadRecord } from '../services/lastReadService';
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
   selectedVersion: BibleVersion;
   initialChapter?: number;
+  initialVerse?: number;
   initialReadingMode?: ReadingMode;
   initialStartVerse?: number;
   initialEndVerse?: number;
@@ -44,6 +46,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   selectedBook,
   selectedVersion,
   initialChapter,
+  initialVerse,
   initialReadingMode,
   initialStartVerse,
   initialEndVerse,
@@ -217,6 +220,29 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
+  // Record last read position to persistent storage
+  const recordCurrentReadingPosition = useCallback((verseNum?: number, preview?: string) => {
+    let previewContent = preview;
+    if (!previewContent && activeVerses.length > 0) {
+      const vObj = verseNum ? activeVerses.find((v) => v.verse === verseNum) : activeVerses[0];
+      if (vObj) {
+        previewContent = `第 ${vObj.verse} 節: ${vObj.text.slice(0, 50)}...`;
+      }
+    }
+
+    saveLastReadRecord({
+      bookId: selectedBook.id,
+      bookName: bookName,
+      chapter: viewChapter,
+      verse: verseNum,
+      version: selectedVersion,
+      readingMode: readingMode,
+      startVerse: readingMode === 'VERSES' ? startVerseNum : undefined,
+      endVerse: readingMode === 'VERSES' ? endVerseNum : undefined,
+      previewText: previewContent,
+    });
+  }, [selectedBook.id, bookName, viewChapter, selectedVersion, readingMode, startVerseNum, endVerseNum, activeVerses]);
+
   // Continuation ref when switching chapter during continuous playback
   const shouldAutoPlayRef = useRef<boolean>(false);
 
@@ -376,16 +402,30 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
         if (!isCancelled) {
           setActiveVerses(resultVerses);
-          setCurrentVerseIndex(0);
+          
+          let targetIndex = 0;
+          if (initialVerse && initialVerse > 1) {
+            const foundIdx = resultVerses.findIndex((v) => v.verse === initialVerse);
+            if (foundIdx >= 0) {
+              targetIndex = foundIdx;
+            }
+          }
+          
+          setCurrentVerseIndex(targetIndex);
           setIsLoadingVerses(false);
 
           if (synthRef.current) {
             synthRef.current.cancel();
           }
 
-          // Ensure view scrolls to the first verse of the new chapter
+          // Ensure view scrolls to the target verse of the chapter
           setTimeout(() => {
-            if (verseRefs.current[0]) {
+            if (verseRefs.current[targetIndex]) {
+              verseRefs.current[targetIndex]?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+            } else if (verseRefs.current[0]) {
               verseRefs.current[0]?.scrollIntoView({
                 behavior: 'smooth',
                 block: 'center',
@@ -402,7 +442,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               audioRef.current.play().catch((err) => console.warn('AutoPlay MP3 failed:', err));
             } else {
               setTimeout(() => {
-                speakVerse(0);
+                speakVerse(targetIndex);
               }, 80);
             }
           }
@@ -584,6 +624,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       utterance.onstart = () => {
         setIsPlaying(true);
         setCurrentVerseIndex(index);
+        recordCurrentReadingPosition(verseObj.verse, `第 ${verseObj.verse} 節: ${verseObj.text.slice(0, 50)}...`);
       };
 
       utterance.onend = () => {
@@ -855,6 +896,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onPlaying={() => {
           setIsAudioBuffering(false);
           setIsPlaying(true);
+          recordCurrentReadingPosition(1);
         }}
         onPause={() => setIsPlaying(false)}
         onEnded={handleAudioEnded}

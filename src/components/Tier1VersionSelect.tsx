@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2, AlertTriangle, X } from 'lucide-react';
+import { Sparkles, Check, Calendar, Bookmark, Trash2, BookOpen, Volume2, AlertTriangle, X, History, Play, ArrowRight } from 'lucide-react';
 import { BibleVersion, Bookmark as BookmarkType } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { getDailyVerse, getRandomVerse, formatReferenceForSpeech, fixChineseTTSPronunciation, DailyVerse } from '../data/dailyVerses';
 import { getBookmarks, removeBookmark } from '../services/bookmarkService';
+import { getLastReadRecord, LastReadRecord } from '../services/lastReadService';
 
 interface Tier1VersionSelectProps {
   selectedVersion: BibleVersion;
   onSelectVersion: (version: BibleVersion) => void;
   onOpenBookmark?: (bookmark: BookmarkType) => void;
+  onOpenLastRead?: (record: LastReadRecord) => void;
   playbackSpeed?: number;
   speechPitch?: number;
   selectedVoiceName?: string;
@@ -18,6 +20,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
   selectedVersion,
   onSelectVersion,
   onOpenBookmark,
+  onOpenLastRead,
   playbackSpeed = 1.0,
   speechPitch = 1.0,
   selectedVoiceName = '',
@@ -34,9 +37,11 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
 
   const [bookmarks, setBookmarks] = useState<BookmarkType[]>([]);
   const [bookmarkToDelete, setBookmarkToDelete] = useState<BookmarkType | null>(null);
+  const [lastRead, setLastRead] = useState<LastReadRecord | null>(null);
 
   useEffect(() => {
     setBookmarks(getBookmarks());
+    setLastRead(getLastReadRecord());
   }, []);
 
   // Sync displayed verse when selectedVersion changes
@@ -177,6 +182,55 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
           );
         })}
       </div>
+
+      {/* Last Read Resume Card (上次朗讀進度) */}
+      {lastRead && (
+        <div className="mt-5 p-3.5 md:p-4 rounded-xl bg-gradient-to-r from-amber-950/70 via-yellow-950/50 to-zinc-950 border border-amber-500/50 hover:border-amber-400 shadow-md hover:shadow-amber-500/10 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-lg bg-amber-900/60 border border-amber-600/40 text-amber-300 group-hover:scale-105 transition-transform shrink-0">
+              <History className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-900/80 text-amber-200 border border-amber-600/50">
+                  上次朗讀進度
+                </span>
+                <span className="text-[10px] text-yellow-500/80 font-mono">
+                  {new Date(lastRead.timestamp).toLocaleDateString('zh-TW', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+              <h3 className="text-sm md:text-base font-bold text-amber-100 flex items-center gap-1.5">
+                <span>{lastRead.bookName}</span>
+                <span className="text-amber-300">
+                  第 {lastRead.chapter} {lastRead.bookId === 'PSA' || lastRead.bookName.includes('詩篇') ? '篇' : '章'}
+                  {lastRead.verse ? ` 第 ${lastRead.verse} 節` : ''}
+                </span>
+                <span className="text-xs font-normal text-zinc-400">({VERSIONS[lastRead.version]?.badge || lastRead.version})</span>
+              </h3>
+              {lastRead.previewText && (
+                <p className="text-xs text-zinc-400 italic line-clamp-1 font-serif">
+                  {lastRead.previewText}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onOpenLastRead && onOpenLastRead(lastRead)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-black font-bold text-xs md:text-sm shadow-md cursor-pointer transition-all active:scale-95 shrink-0 self-end sm:self-center"
+          >
+            <Play className="w-3.5 h-3.5 fill-black" />
+            <span>繼續上次朗讀</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Daily Verse Card */}
       <div

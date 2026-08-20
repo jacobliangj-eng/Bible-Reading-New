@@ -11,12 +11,14 @@ import { Tier1VersionSelect } from './components/Tier1VersionSelect';
 import { Tier2BookSelect } from './components/Tier2BookSelect';
 import { Tier3ScriptureReader } from './components/Tier3ScriptureReader';
 import { AudioSettingsModal } from './components/AudioSettingsModal';
+import { LastReadRecord } from './services/lastReadService';
 
 export default function App() {
   const [currentTier, setCurrentTier] = useState<Tier>('TIER1');
   const [selectedVersion, setSelectedVersion] = useState<BibleVersion>('CUV');
   const [selectedBook, setSelectedBook] = useState<BibleBook | null>(null);
   const [initialChapter, setInitialChapter] = useState<number>(1);
+  const [initialVerse, setInitialVerse] = useState<number | undefined>(undefined);
   const [initialReadingMode, setInitialReadingMode] = useState<ReadingMode | undefined>(undefined);
   const [initialStartVerse, setInitialStartVerse] = useState<number | undefined>(undefined);
   const [initialEndVerse, setInitialEndVerse] = useState<number | undefined>(undefined);
@@ -114,6 +116,7 @@ export default function App() {
   const handleSelectBook = (book: BibleBook) => {
     setSelectedBook(book);
     setInitialChapter(1);
+    setInitialVerse(undefined);
     setInitialReadingMode(undefined);
     setInitialStartVerse(undefined);
     setInitialEndVerse(undefined);
@@ -127,9 +130,25 @@ export default function App() {
       setSelectedVersion(bookmark.version);
       setSelectedBook(book);
       setInitialChapter(bookmark.chapter);
+      setInitialVerse(bookmark.startVerse);
       setInitialReadingMode(bookmark.readingMode || (bookmark.startVerse !== undefined ? 'VERSES' : 'CHAPTERS'));
       setInitialStartVerse(bookmark.startVerse);
       setInitialEndVerse(bookmark.endVerse);
+      setCurrentTier('TIER3');
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }
+  };
+
+  const handleOpenLastRead = (record: LastReadRecord) => {
+    const book = BIBLE_BOOKS.find((b) => b.id === record.bookId);
+    if (book) {
+      setSelectedVersion(record.version);
+      setSelectedBook(book);
+      setInitialChapter(record.chapter);
+      setInitialVerse(record.verse);
+      setInitialReadingMode(record.readingMode || 'CHAPTERS');
+      setInitialStartVerse(record.verse);
+      setInitialEndVerse(record.verse ? undefined : undefined);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -164,6 +183,7 @@ export default function App() {
             selectedVersion={selectedVersion}
             onSelectVersion={handleSelectVersion}
             onOpenBookmark={handleOpenBookmark}
+            onOpenLastRead={handleOpenLastRead}
             playbackSpeed={playbackSpeed}
             speechPitch={speechPitch}
             selectedVoiceName={selectedVoiceName}
@@ -183,6 +203,7 @@ export default function App() {
             selectedBook={selectedBook}
             selectedVersion={selectedVersion}
             initialChapter={initialChapter}
+            initialVerse={initialVerse}
             initialReadingMode={initialReadingMode}
             initialStartVerse={initialStartVerse}
             initialEndVerse={initialEndVerse}
