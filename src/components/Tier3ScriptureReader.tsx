@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Play,
   Pause,
-  RotateCcw,
   Volume2,
   VolumeX,
   ListOrdered,
@@ -14,13 +13,78 @@ import {
   X,
   Bookmark,
   Loader2,
+  Highlighter,
+  StickyNote,
+  FileEdit,
+  Trash2,
+  Palette,
+  Search,
+  BookOpen,
+  ArrowRight,
 } from 'lucide-react';
-import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
+import { BibleBook, BibleVersion, ReadingMode, Verse, HighlightColor, VerseAnnotation } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import { fetchChapterVerses, getFhlChapterAudioUrls } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
+import {
+  getChapterAnnotations,
+  getAllAnnotations,
+  setVerseHighlight,
+  setVerseNote,
+  deleteAnnotation,
+} from '../services/annotationService';
+
+export const HIGHLIGHT_COLORS: {
+  id: HighlightColor;
+  label: string;
+  dotClass: string;
+  bgClass: string;
+  borderClass: string;
+  badgeClass: string;
+}[] = [
+  {
+    id: 'yellow',
+    label: '亮黃',
+    dotClass: 'bg-yellow-400 border-yellow-300 shadow-yellow-500/40',
+    bgClass: 'bg-yellow-500/15 border-l-4 border-yellow-400',
+    borderClass: 'border-yellow-500/50',
+    badgeClass: 'bg-yellow-950 text-yellow-300 border-yellow-500/60',
+  },
+  {
+    id: 'green',
+    label: '翠綠',
+    dotClass: 'bg-emerald-400 border-emerald-300 shadow-emerald-500/40',
+    bgClass: 'bg-emerald-500/15 border-l-4 border-emerald-400',
+    borderClass: 'border-emerald-500/50',
+    badgeClass: 'bg-emerald-950 text-emerald-300 border-emerald-500/60',
+  },
+  {
+    id: 'pink',
+    label: '粉紅',
+    dotClass: 'bg-pink-400 border-pink-300 shadow-pink-500/40',
+    bgClass: 'bg-pink-500/15 border-l-4 border-pink-400',
+    borderClass: 'border-pink-500/50',
+    badgeClass: 'bg-pink-950 text-pink-300 border-pink-500/60',
+  },
+  {
+    id: 'blue',
+    label: '天藍',
+    dotClass: 'bg-sky-400 border-sky-300 shadow-sky-500/40',
+    bgClass: 'bg-sky-500/15 border-l-4 border-sky-400',
+    borderClass: 'border-sky-500/50',
+    badgeClass: 'bg-sky-950 text-sky-300 border-sky-500/60',
+  },
+  {
+    id: 'orange',
+    label: '暖橘',
+    dotClass: 'bg-orange-400 border-orange-300 shadow-orange-500/40',
+    bgClass: 'bg-orange-500/15 border-l-4 border-orange-400',
+    borderClass: 'border-orange-500/50',
+    badgeClass: 'bg-orange-950 text-orange-300 border-orange-500/60',
+  },
+];
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
@@ -166,6 +230,31 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   } | null>(null);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const lastVerseTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+
+  // Highlights & Notes State
+  const [chapterAnnotations, setChapterAnnotations] = useState<Record<number, VerseAnnotation>>({});
+  const [allAnnotations, setAllAnnotations] = useState<VerseAnnotation[]>([]);
+  const [selectedActionVerse, setSelectedActionVerse] = useState<{
+    verseObj: Verse;
+    index: number;
+    initialTab?: 'highlight' | 'note';
+  } | null>(null);
+  const [actionNoteText, setActionNoteText] = useState<string>('');
+  const [noteSaveSuccess, setNoteSaveSuccess] = useState<boolean>(false);
+  const [isAnnotationsListOpen, setIsAnnotationsListOpen] = useState<boolean>(false);
+  const [annotationsListFilter, setAnnotationsListFilter] = useState<'chapter' | 'book' | 'all'>('chapter');
+  const [annotationsSearchQuery, setAnnotationsSearchQuery] = useState<string>('');
+
+  // Reload annotations from localStorage
+  const reloadAnnotations = useCallback(() => {
+    const chAnn = getChapterAnnotations(selectedVersion, selectedBook.id, viewChapter);
+    setChapterAnnotations(chAnn);
+    setAllAnnotations(getAllAnnotations());
+  }, [selectedVersion, selectedBook.id, viewChapter]);
+
+  useEffect(() => {
+    reloadAnnotations();
+  }, [reloadAnnotations]);
 
   // Bookmark state & toggle
   const isVerseMode = readingMode === 'VERSES' || startVerseNum > 1 || endVerseNum < maxVersesForChapter;
@@ -737,28 +826,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
   }, [handleTogglePlayPause]);
 
-  // Reset / Restart Playback
-  const handleRestart = () => {
-    if (isFhlMp3Mode) {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        setAudioCurrentTime(0);
-        if (isPlaying) {
-          audioRef.current.play().catch((err) => console.warn(err));
-        }
-      }
-      return;
-    }
-
-    if (synthRef.current) {
-      synthRef.current.cancel();
-    }
-    setCurrentVerseIndex(0);
-    if (isPlaying) {
-      speakVerse(0);
-    }
-  };
-
   // MP3 Seek Slider Handler
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = Number(e.target.value);
@@ -798,33 +865,87 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Open copy dialog modal
-  const handleOpenCopyModal = (v: Verse, idx: number) => {
-    setSelectedCopyVerse({
-      chapter: v.chapter,
-      verse: v.verse,
-      text: v.text,
+  // Open action modal for a verse (Highlight, Note, Copy, Read)
+  const handleOpenVerseAction = (v: Verse, idx: number, initialTab: 'highlight' | 'note' = 'highlight') => {
+    const existingAnnotation = chapterAnnotations[v.verse];
+    setSelectedActionVerse({
+      verseObj: v,
       index: idx,
+      initialTab,
     });
+    setActionNoteText(existingAnnotation?.note || '');
+    setNoteSaveSuccess(false);
     setCopySuccess(false);
   };
 
-  // Double click / double tap handler for verses
+  // Toggle or select highlight color
+  const handleSelectHighlightColor = (color: HighlightColor | null) => {
+    if (!selectedActionVerse) return;
+    const v = selectedActionVerse.verseObj;
+    const currentAnn = chapterAnnotations[v.verse];
+    const targetColor = currentAnn?.highlightColor === color ? null : color;
+
+    setVerseHighlight({
+      version: selectedVersion,
+      bookId: selectedBook.id,
+      bookName,
+      chapter: viewChapter,
+      verse: v.verse,
+      verseText: v.text,
+      color: targetColor,
+    });
+
+    reloadAnnotations();
+  };
+
+  // Save note for the selected verse
+  const handleSaveNote = () => {
+    if (!selectedActionVerse) return;
+    const v = selectedActionVerse.verseObj;
+    setVerseNote({
+      version: selectedVersion,
+      bookId: selectedBook.id,
+      bookName,
+      chapter: viewChapter,
+      verse: v.verse,
+      verseText: v.text,
+      note: actionNoteText,
+    });
+
+    setNoteSaveSuccess(true);
+    reloadAnnotations();
+    setTimeout(() => {
+      setNoteSaveSuccess(false);
+    }, 1500);
+  };
+
+  // Delete note for the selected verse
+  const handleDeleteNote = () => {
+    if (!selectedActionVerse) return;
+    const v = selectedActionVerse.verseObj;
+    setVerseNote({
+      version: selectedVersion,
+      bookId: selectedBook.id,
+      bookName,
+      chapter: viewChapter,
+      verse: v.verse,
+      verseText: v.text,
+      note: null,
+    });
+    setActionNoteText('');
+    reloadAnnotations();
+  };
+
+  // Verse click handler - opens the action modal
   const handleVerseClick = (v: Verse, idx: number) => {
-    const now = Date.now();
-    const verseKey = `${v.chapter}:${v.verse}`;
-    if (lastVerseTapRef.current.id === verseKey && now - lastVerseTapRef.current.time < 450) {
-      handleOpenCopyModal(v, idx);
-      lastVerseTapRef.current = { id: '', time: 0 };
-    } else {
-      lastVerseTapRef.current = { id: verseKey, time: now };
-    }
+    handleOpenVerseAction(v, idx);
   };
 
   // Copy verse handler
   const handleCopyVerseText = async () => {
-    if (!selectedCopyVerse) return;
-    const formattedText = `【${bookName} ${selectedCopyVerse.chapter}:${selectedCopyVerse.verse}】${selectedCopyVerse.text}`;
+    const targetVerse = selectedActionVerse?.verseObj || selectedCopyVerse;
+    if (!targetVerse) return;
+    const formattedText = `【${bookName} ${targetVerse.chapter}:${targetVerse.verse}】${targetVerse.text}`;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(formattedText);
@@ -839,8 +960,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       setCopySuccess(true);
       setTimeout(() => {
         setCopySuccess(false);
-        setSelectedCopyVerse(null);
-      }, 1000);
+      }, 1500);
     } catch (err) {
       console.error('Copy failed:', err);
     }
@@ -848,8 +968,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   // Read from selected verse
   const handleStartReadingSelected = () => {
-    if (!selectedCopyVerse) return;
-    const idx = selectedCopyVerse.index;
+    const targetIdx = selectedActionVerse?.index ?? selectedCopyVerse?.index;
+    if (targetIdx === undefined) return;
+    setSelectedActionVerse(null);
     setSelectedCopyVerse(null);
 
     if (isFhlMp3Mode) {
@@ -860,10 +981,25 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         audioRef.current.play().catch((err) => console.warn(err));
       }
     } else {
-      setCurrentVerseIndex(idx);
+      setCurrentVerseIndex(targetIdx);
       setIsPlaying(true);
-      speakVerse(idx);
+      speakVerse(targetIdx);
     }
+  };
+
+  // Jump to annotation from list
+  const handleJumpToAnnotation = (ann: VerseAnnotation) => {
+    setIsAnnotationsListOpen(false);
+    if (ann.chapter !== viewChapter) {
+      setViewChapter(ann.chapter);
+      setTargetChapter(ann.chapter);
+    }
+    setTimeout(() => {
+      const foundIdx = activeVerses.findIndex((v) => v.verse === ann.verse);
+      if (foundIdx >= 0 && verseRefs.current[foundIdx]) {
+        verseRefs.current[foundIdx]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 300);
   };
 
   // Font size CSS mapping
@@ -1041,16 +1177,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               )}
             </button>
 
-            {/* Restart Button */}
-            <button
-              onClick={handleRestart}
-              className="px-2 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-zinc-900 border border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 transition-all cursor-pointer"
-              title="重頭開始播放"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">重播</span>
-            </button>
-
             {/* Repeat Mode Toggle */}
             <button
               onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
@@ -1076,7 +1202,25 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               title={isBookmarkedState ? '移除書籤' : '加書籤'}
             >
               <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
-              <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
+              <span>{isBookmarkedState ? '已加' : '書籤'}</span>
+            </button>
+
+            {/* Annotations & Notes List Button */}
+            <button
+              onClick={() => {
+                setAnnotationsListFilter('chapter');
+                setIsAnnotationsListOpen(true);
+              }}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-yellow-700/50 bg-zinc-900 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 transition-all cursor-pointer"
+              title="查看螢光筆劃線與經文筆記"
+            >
+              <Highlighter className="w-3.5 h-3.5 text-amber-400" />
+              <span>劃線</span>
+              {Object.keys(chapterAnnotations).length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-black text-[10px] font-extrabold font-mono">
+                  {Object.keys(chapterAnnotations).length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -1115,9 +1259,14 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center justify-center sm:justify-end pb-2.5 border-b border-yellow-800/40">
+        <div className="flex items-center justify-between pb-2.5 border-b border-yellow-800/40">
+          <div className="flex items-center gap-2 text-xs text-yellow-500/80 font-sans">
+            <span className="hidden sm:inline">💡 點選任一經文即可進行『螢光筆劃線』或『加入筆記』</span>
+            <span className="sm:hidden">💡 點選經文劃線/加筆記</span>
+          </div>
+
           {/* Chapter Navigation Bar */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={handlePrevChapter}
               disabled={viewChapter <= minChapter}
@@ -1164,9 +1313,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             無相關經文資料
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {activeVerses.map((v, idx) => {
               const isActive = isPlaying && currentVerseIndex === idx;
+              const annotation = chapterAnnotations[v.verse];
+              const highlightColor = annotation?.highlightColor;
+              const highlightDef = highlightColor ? HIGHLIGHT_COLORS.find((c) => c.id === highlightColor) : null;
 
               return (
                 <div
@@ -1175,35 +1327,77 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     verseRefs.current[idx] = el;
                   }}
                   onClick={() => handleVerseClick(v, idx)}
-                  className={`py-0.5 px-2 md:py-1 md:px-2.5 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
+                  className={`py-1.5 px-2.5 md:py-2 md:px-3 rounded-lg cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
                     isActive
-                      ? 'active-verse bg-yellow-950/70 border border-yellow-500/60 shadow-sm shadow-amber-500/10'
-                      : 'bg-zinc-900/40 border border-zinc-800/70 hover:border-yellow-600/40 hover:bg-zinc-900/80'
+                      ? 'active-verse bg-yellow-950/80 border border-yellow-500/80 shadow-md shadow-amber-500/20'
+                      : highlightDef
+                      ? `${highlightDef.bgClass} ${highlightDef.borderClass} border hover:brightness-110 shadow-sm`
+                      : 'bg-zinc-900/40 border border-zinc-800/70 hover:border-yellow-600/50 hover:bg-zinc-900/80'
                   }`}
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2.5">
                     {/* Chapter & Verse Badge */}
-                    <span
-                      className={`inline-block px-1.5 py-0 rounded text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
-                        isActive
-                          ? 'bg-amber-400 text-black shadow-sm'
-                          : 'bg-yellow-950/80 text-amber-300 border border-yellow-700/40 group-hover:border-amber-400'
-                      }`}
-                    >
-                      {v.chapter}:{v.verse}
-                    </span>
+                    <div className="flex flex-col items-center gap-1 shrink-0 mt-0.5">
+                      <span
+                        className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-mono font-bold shrink-0 ${
+                          isActive
+                            ? 'bg-amber-400 text-black shadow-sm'
+                            : highlightDef
+                            ? `${highlightDef.badgeClass} border`
+                            : 'bg-yellow-950/80 text-amber-300 border border-yellow-700/40 group-hover:border-amber-400'
+                        }`}
+                      >
+                        {v.chapter}:{v.verse}
+                      </span>
+                      {highlightDef && (
+                        <span className={`w-2 h-2 rounded-full ${highlightDef.dotClass} shrink-0`} title={`已劃線：${highlightDef.label}`} />
+                      )}
+                    </div>
 
-                    {/* Verse Text */}
-                    <div className="flex-1">
+                    {/* Verse Text & Note Content */}
+                    <div className="flex-1 min-w-0">
                       <p
                         className={`font-serif tracking-normal transition-all ${getFontSizeClass()} ${
                           isActive
                             ? 'text-amber-100 font-normal'
-                            : 'text-zinc-200 group-hover:text-amber-200'
+                            : highlightDef
+                            ? 'text-amber-50 font-normal'
+                            : 'text-zinc-200 group-hover:text-amber-100'
                         }`}
                       >
                         {v.text}
                       </p>
+
+                      {/* Attached Note Preview Card */}
+                      {annotation?.note && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenVerseAction(v, idx, 'note');
+                          }}
+                          className="mt-2 p-2.5 rounded-lg bg-black/60 border border-amber-500/40 hover:border-amber-400 text-amber-100 text-xs flex items-start justify-between gap-2 shadow-inner group/note cursor-pointer transition-all"
+                        >
+                          <div className="flex items-start gap-2 flex-1 min-w-0">
+                            <StickyNote className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                            <p className="font-sans whitespace-pre-wrap leading-relaxed break-words text-[12px] text-amber-200">
+                              {annotation.note}
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-amber-400/80 group-hover/note:text-amber-300 font-bold shrink-0 underline">
+                            編輯
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick Hover/Tap Tool Indicator */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center gap-1 shrink-0">
+                      <span className="p-1 rounded bg-zinc-800/80 text-amber-300 hover:text-amber-200 border border-yellow-700/40">
+                        <Highlighter className="w-3 h-3" />
+                      </span>
+                      <span className="p-1 rounded bg-zinc-800/80 text-amber-300 hover:text-amber-200 border border-yellow-700/40">
+                        <FileEdit className="w-3 h-3" />
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1213,58 +1407,166 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         )}
       </div>
 
-      {/* Copy Verse Confirmation Modal (點選經文複製確認彈窗) */}
-      {selectedCopyVerse && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="gold-card max-w-md w-full p-5 rounded-2xl border border-yellow-600/50 shadow-2xl space-y-4">
+      {/* Verse Action Modal (經文螢光筆劃線、加入筆記、複製、朗讀操作彈窗) */}
+      {selectedActionVerse && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="gold-card max-w-lg w-full p-5 rounded-2xl border border-yellow-600/60 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-yellow-800/40 pb-3">
-              <h3 className="text-sm md:text-base font-bold text-amber-300 flex items-center gap-2">
-                <Copy className="w-4 h-4 text-amber-400" />
-                <span>複製經文確認</span>
-              </h3>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md bg-amber-400 text-black text-xs font-mono font-bold">
+                  {selectedActionVerse.verseObj.chapter}:{selectedActionVerse.verseObj.verse}
+                </span>
+                <h3 className="text-sm md:text-base font-bold text-amber-300">
+                  {bookName} 第 {selectedActionVerse.verseObj.chapter} {chapterUnit} 第 {selectedActionVerse.verseObj.verse} 節
+                </h3>
+              </div>
               <button
-                onClick={() => setSelectedCopyVerse(null)}
-                className="text-zinc-400 hover:text-zinc-100 p-1 rounded-lg hover:bg-zinc-800/60 transition-colors cursor-pointer"
+                onClick={() => setSelectedActionVerse(null)}
+                className="text-zinc-400 hover:text-zinc-100 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
                 title="關閉"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-1.5">
-              <p className="text-xs text-yellow-500/80 font-medium">是否要複製以下經文？</p>
-              <div className="bg-zinc-950/90 p-3.5 rounded-xl border border-yellow-900/60 text-xs md:text-sm text-amber-100 leading-relaxed font-serif max-h-48 overflow-y-auto">
-                <span className="font-bold text-amber-400 mr-1.5">
-                  【{bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}】
-                </span>
-                {selectedCopyVerse.text}
+            {/* Scripture Preview Box */}
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-yellow-500/80">經文內容</span>
+              <div
+                className={`p-3 rounded-xl border font-serif text-xs md:text-sm leading-relaxed ${
+                  chapterAnnotations[selectedActionVerse.verseObj.verse]?.highlightColor
+                    ? `${
+                        HIGHLIGHT_COLORS.find(
+                          (c) => c.id === chapterAnnotations[selectedActionVerse.verseObj.verse]?.highlightColor
+                        )?.bgClass
+                      } ${
+                        HIGHLIGHT_COLORS.find(
+                          (c) => c.id === chapterAnnotations[selectedActionVerse.verseObj.verse]?.highlightColor
+                        )?.borderClass
+                      } text-amber-50`
+                    : 'bg-zinc-950/80 border-yellow-900/60 text-zinc-200'
+                }`}
+              >
+                {selectedActionVerse.verseObj.text}
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-yellow-900/40">
+            {/* Highlighter Color Palette (螢光筆劃線) */}
+            <div className="space-y-2 pt-1 border-t border-yellow-900/40">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <Highlighter className="w-3.5 h-3.5 text-amber-400" />
+                  <span>螢光筆劃線顏色</span>
+                </div>
+                {chapterAnnotations[selectedActionVerse.verseObj.verse]?.highlightColor && (
+                  <button
+                    onClick={() => handleSelectHighlightColor(null)}
+                    className="text-[11px] text-zinc-400 hover:text-red-400 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>清除劃線</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {HIGHLIGHT_COLORS.map((c) => {
+                  const isSelected =
+                    chapterAnnotations[selectedActionVerse.verseObj.verse]?.highlightColor === c.id;
+
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSelectHighlightColor(c.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-400 text-black border-yellow-300 ring-2 ring-amber-400/50 shadow-md'
+                          : 'bg-zinc-900 text-zinc-200 border-zinc-700 hover:border-yellow-500 hover:bg-zinc-800'
+                      }`}
+                    >
+                      <span className={`w-3 h-3 rounded-full ${c.dotClass} shrink-0`} />
+                      <span>{c.label}</span>
+                      {isSelected && <Check className="w-3 h-3 text-black stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Note Editor (經文筆記) */}
+            <div className="space-y-2 pt-2 border-t border-yellow-900/40">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <StickyNote className="w-3.5 h-3.5 text-amber-400" />
+                  <span>經文筆記 / 靈修心得</span>
+                </div>
+                {chapterAnnotations[selectedActionVerse.verseObj.verse]?.note && (
+                  <button
+                    onClick={handleDeleteNote}
+                    className="text-[11px] text-zinc-400 hover:text-red-400 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>刪除筆記</span>
+                  </button>
+                )}
+              </div>
+
+              <textarea
+                value={actionNoteText}
+                onChange={(e) => setActionNoteText(e.target.value)}
+                placeholder="在此輸入此節經文的心得、註解、禱告回應或啟示..."
+                rows={3}
+                className="w-full bg-zinc-950 border border-yellow-600/40 focus:border-amber-400 rounded-xl p-3 text-xs md:text-sm text-amber-100 placeholder-zinc-500 font-sans focus:outline-none transition-all resize-none shadow-inner"
+              />
+
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-zinc-500">
+                  {actionNoteText.length > 0 ? `${actionNoteText.length} 字` : '未輸入筆記內容'}
+                </span>
+
+                <button
+                  onClick={handleSaveNote}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    noteSaveSuccess
+                      ? 'bg-emerald-500 text-black border-emerald-400 shadow-md shadow-emerald-500/20'
+                      : 'bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-black font-bold shadow-md shadow-amber-500/20'
+                  }`}
+                >
+                  {noteSaveSuccess ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>筆記已儲存！</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileEdit className="w-3.5 h-3.5" />
+                      <span>儲存筆記</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Action Footer (複製與朗讀) */}
+            <div className="flex items-center justify-between pt-3 border-t border-yellow-900/40">
               <button
                 onClick={handleStartReadingSelected}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-300 border border-amber-500/40 hover:bg-yellow-950/60 flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-amber-300 border border-amber-500/40 hover:bg-yellow-950/60 flex items-center gap-1.5 transition-all cursor-pointer"
                 title="從此節開始朗讀"
               >
-                <Play className="w-3.5 h-3.5 text-amber-400" />
+                <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                 <span>{isFhlMp3Mode ? '開始整章朗讀' : '從此節朗讀'}</span>
               </button>
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setSelectedCopyVerse(null)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-zinc-400 hover:text-zinc-200 border border-zinc-700/60 hover:bg-zinc-800/60 transition-all cursor-pointer"
-                >
-                  取消
-                </button>
-                <button
                   onClick={handleCopyVerseText}
-                  className="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-zinc-300 hover:text-amber-200 border border-zinc-700/60 hover:bg-zinc-800/60 flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   {copySuccess ? (
                     <>
-                      <Check className="w-3.5 h-3.5" />
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
                       <span>已複製！</span>
                     </>
                   ) : (
@@ -1274,7 +1576,186 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     </>
                   )}
                 </button>
+
+                <button
+                  onClick={() => setSelectedActionVerse(null)}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-all cursor-pointer"
+                >
+                  關閉
+                </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Annotations & Notes List Modal (劃線與筆記清單彈窗) */}
+      {isAnnotationsListOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="gold-card max-w-2xl w-full p-5 rounded-2xl border border-yellow-600/60 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-yellow-800/40 pb-3 shrink-0">
+              <h3 className="text-sm md:text-base font-bold text-amber-300 flex items-center gap-2">
+                <Highlighter className="w-4 h-4 text-amber-400" />
+                <span>聖經螢光筆劃線與筆記清單</span>
+              </h3>
+              <button
+                onClick={() => setIsAnnotationsListOpen(false)}
+                className="text-zinc-400 hover:text-zinc-100 p-1.5 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="關閉"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Filter Tabs & Search Bar */}
+            <div className="space-y-2 shrink-0">
+              <div className="flex items-center gap-1.5 bg-black/50 p-1 rounded-xl border border-yellow-900/40 overflow-x-auto">
+                <button
+                  onClick={() => setAnnotationsListFilter('chapter')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                    annotationsListFilter === 'chapter'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-amber-200'
+                  }`}
+                >
+                  本{chapterUnit} (第 {viewChapter} {chapterUnit})
+                </button>
+                <button
+                  onClick={() => setAnnotationsListFilter('book')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                    annotationsListFilter === 'book'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-amber-200'
+                  }`}
+                >
+                  全書卷 ({bookName})
+                </button>
+                <button
+                  onClick={() => setAnnotationsListFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer ${
+                    annotationsListFilter === 'all'
+                      ? 'bg-amber-400 text-black shadow-sm'
+                      : 'text-zinc-400 hover:text-amber-200'
+                  }`}
+                >
+                  全部筆記與劃線 ({allAnnotations.length})
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={annotationsSearchQuery}
+                  onChange={(e) => setAnnotationsSearchQuery(e.target.value)}
+                  placeholder="搜尋筆記內容或經文關鍵字..."
+                  className="w-full bg-zinc-950 border border-yellow-900/60 focus:border-amber-400 rounded-lg pl-8 pr-3 py-1.5 text-xs text-amber-100 placeholder-zinc-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* List Body */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[200px]">
+              {(() => {
+                let filtered = allAnnotations;
+
+                if (annotationsListFilter === 'chapter') {
+                  filtered = filtered.filter(
+                    (a) => a.bookId === selectedBook.id && a.chapter === viewChapter && a.version === selectedVersion
+                  );
+                } else if (annotationsListFilter === 'book') {
+                  filtered = filtered.filter(
+                    (a) => a.bookId === selectedBook.id && a.version === selectedVersion
+                  );
+                }
+
+                if (annotationsSearchQuery.trim()) {
+                  const query = annotationsSearchQuery.toLowerCase();
+                  filtered = filtered.filter(
+                    (a) =>
+                      a.note?.toLowerCase().includes(query) ||
+                      a.verseText?.toLowerCase().includes(query) ||
+                      a.bookName?.toLowerCase().includes(query)
+                  );
+                }
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-500 space-y-2">
+                      <Highlighter className="w-8 h-8 opacity-40 text-amber-500" />
+                      <p className="text-xs">
+                        {annotationsSearchQuery.trim()
+                          ? '找不到符合條件的劃線或筆記'
+                          : '尚無任何劃線或筆記紀錄，點選經文即可加入！'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return filtered.map((ann) => {
+                  const hlDef = ann.highlightColor ? HIGHLIGHT_COLORS.find((c) => c.id === ann.highlightColor) : null;
+
+                  return (
+                    <div
+                      key={ann.id}
+                      className="p-3 rounded-xl bg-zinc-950/80 border border-yellow-900/50 hover:border-amber-400/60 transition-all space-y-2 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-amber-300 text-xs">
+                            {ann.bookName} 第 {ann.chapter} 章 第 {ann.verse} 節
+                          </span>
+                          {hlDef && (
+                            <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold border ${hlDef.badgeClass}`}>
+                              {hlDef.label}劃線
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleJumpToAnnotation(ann)}
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="前往此經節"
+                          >
+                            <span>前往</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              deleteAnnotation(ann.id);
+                              reloadAnnotations();
+                            }}
+                            className="p-1 rounded text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
+                            title="刪除紀錄"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Verse Text */}
+                      {ann.verseText && (
+                        <p className="text-xs text-zinc-400 font-serif line-clamp-2">
+                          {ann.verseText}
+                        </p>
+                      )}
+
+                      {/* Note snippet */}
+                      {ann.note && (
+                        <div className="p-2 rounded-lg bg-yellow-950/40 border border-amber-500/30 text-xs text-amber-100 flex items-start gap-1.5">
+                          <StickyNote className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                          <p className="whitespace-pre-wrap font-sans text-[11px] leading-relaxed">
+                            {ann.note}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>
