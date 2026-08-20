@@ -223,9 +223,9 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
           <button
             type="button"
             onClick={() => onOpenLastRead && onOpenLastRead(lastRead)}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-black font-bold text-xs md:text-sm shadow-md cursor-pointer transition-all active:scale-95 shrink-0 self-end sm:self-center"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-yellow-200 hover:bg-yellow-100 text-zinc-900 border border-yellow-300/80 font-bold text-xs md:text-sm shadow-md hover:shadow-yellow-200/20 cursor-pointer transition-all active:scale-95 shrink-0 self-end sm:self-center"
           >
-            <Play className="w-3.5 h-3.5 fill-black" />
+            <Play className="w-3.5 h-3.5 fill-zinc-900" />
             <span>繼續上次朗讀</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>

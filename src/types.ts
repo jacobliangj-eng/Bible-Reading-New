@@ -66,18 +66,3 @@ export interface Bookmark {
   endVerse?: number;
   readingMode?: ReadingMode;
 }
-
-export type HighlightColor = 'yellow' | 'green' | 'pink' | 'blue' | 'orange';
-
-export interface VerseAnnotation {
-  id: string; // e.g. `${version}_${bookId}_${chapter}_${verse}`
-  bookId: string;
-  bookName: string;
-  chapter: number;
-  verse: number;
-  version: BibleVersion;
-  highlightColor?: HighlightColor;
-  note?: string;
-  updatedAt: number;
-  verseText: string;
-}
