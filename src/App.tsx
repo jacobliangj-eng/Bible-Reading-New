@@ -22,6 +22,7 @@ export default function App() {
   const [initialReadingMode, setInitialReadingMode] = useState<ReadingMode | undefined>(undefined);
   const [initialStartVerse, setInitialStartVerse] = useState<number | undefined>(undefined);
   const [initialEndVerse, setInitialEndVerse] = useState<number | undefined>(undefined);
+  const [isFromBookmark, setIsFromBookmark] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Global Playback, Voice, Font Size, Pitch & Night Mode State
@@ -109,6 +110,7 @@ export default function App() {
   // Nav Handlers
   const handleSelectVersion = (version: BibleVersion) => {
     setSelectedVersion(version);
+    setIsFromBookmark(false);
     setCurrentTier('TIER2');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -120,6 +122,7 @@ export default function App() {
     setInitialReadingMode(undefined);
     setInitialStartVerse(undefined);
     setInitialEndVerse(undefined);
+    setIsFromBookmark(false);
     setCurrentTier('TIER3');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -134,6 +137,7 @@ export default function App() {
       setInitialReadingMode(bookmark.readingMode || (bookmark.startVerse !== undefined ? 'VERSES' : 'CHAPTERS'));
       setInitialStartVerse(bookmark.startVerse);
       setInitialEndVerse(bookmark.endVerse);
+      setIsFromBookmark(true);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -149,6 +153,7 @@ export default function App() {
       setInitialReadingMode(record.readingMode || 'CHAPTERS');
       setInitialStartVerse(record.verse);
       setInitialEndVerse(record.verse ? undefined : undefined);
+      setIsFromBookmark(false);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -163,17 +168,20 @@ export default function App() {
       setInitialReadingMode('CHAPTERS');
       setInitialStartVerse(undefined);
       setInitialEndVerse(undefined);
+      setIsFromBookmark(false);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
   };
 
   const handleGoHome = () => {
+    setIsFromBookmark(false);
     setCurrentTier('TIER1');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   const handleGoBackToTier2 = () => {
+    setIsFromBookmark(false);
     setCurrentTier('TIER2');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -231,6 +239,7 @@ export default function App() {
             fontSize={fontSize}
             setFontSize={setFontSize}
             selectedVoiceName={selectedVoiceName}
+            isFromBookmark={isFromBookmark}
           />
         )}
       </main>

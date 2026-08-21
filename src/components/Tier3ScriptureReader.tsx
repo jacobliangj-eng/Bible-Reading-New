@@ -39,6 +39,7 @@ interface Tier3ScriptureReaderProps {
   setFontSize?: (size: 'normal' | 'large' | 'xlarge') => void;
   selectedVoiceName?: string;
   autoStartPlayback?: boolean;
+  isFromBookmark?: boolean;
 }
 
 export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
@@ -59,6 +60,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   setFontSize: propSetFontSize,
   selectedVoiceName = '',
   autoStartPlayback = false,
+  isFromBookmark = false,
 }) => {
   const versionInfo = VERSIONS[selectedVersion];
   const bookName = selectedBook.name[selectedVersion];
@@ -219,8 +221,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Record last read position to persistent storage
+  // Record last read position to persistent storage (Only when reading whole chapter and NOT opened from bookmark)
   const recordCurrentReadingPosition = useCallback((verseNum?: number, preview?: string) => {
+    // If opened from a bookmark in TIER1, do not update last read progress
+    if (isFromBookmark) {
+      return;
+    }
+
+    // Only allow updating during whole chapter reading (整章朗讀)
+    if (readingMode === 'VERSES') {
+      return;
+    }
+
+    // If sub-verse range is specified instead of whole chapter, do not update
+    if (startVerseNum > 1 || (maxVersesForChapter > 0 && endVerseNum < maxVersesForChapter)) {
+      return;
+    }
+
     let previewContent = preview;
     if (!previewContent && activeVerses.length > 0) {
       const vObj = verseNum ? activeVerses.find((v) => v.verse === verseNum) : activeVerses[0];
@@ -235,12 +252,21 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       chapter: viewChapter,
       verse: verseNum,
       version: selectedVersion,
-      readingMode: readingMode,
-      startVerse: readingMode === 'VERSES' ? startVerseNum : undefined,
-      endVerse: readingMode === 'VERSES' ? endVerseNum : undefined,
+      readingMode: 'CHAPTERS',
       previewText: previewContent,
     });
-  }, [selectedBook.id, bookName, viewChapter, selectedVersion, readingMode, startVerseNum, endVerseNum, activeVerses]);
+  }, [
+    isFromBookmark,
+    readingMode,
+    startVerseNum,
+    endVerseNum,
+    maxVersesForChapter,
+    selectedBook.id,
+    bookName,
+    viewChapter,
+    selectedVersion,
+    activeVerses,
+  ]);
 
   // Continuation ref when switching chapter during continuous playback
   const shouldAutoPlayRef = useRef<boolean>(false);
