@@ -43,8 +43,20 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
   const [lastRead, setLastRead] = useState<LastReadRecord | null>(null);
 
   useEffect(() => {
-    setBookmarks(getBookmarks());
-    setLastRead(getLastReadRecord());
+    const refreshData = () => {
+      setBookmarks(getBookmarks());
+      setLastRead(getLastReadRecord());
+    };
+
+    refreshData();
+
+    window.addEventListener('focus', refreshData);
+    document.addEventListener('visibilitychange', refreshData);
+
+    return () => {
+      window.removeEventListener('focus', refreshData);
+      document.removeEventListener('visibilitychange', refreshData);
+    };
   }, []);
 
   // Sync displayed verse when selectedVersion changes

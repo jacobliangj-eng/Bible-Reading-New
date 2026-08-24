@@ -153,9 +153,10 @@ export default function App() {
       setInitialChapter(record.chapter);
       setInitialVerse(record.verse);
       setInitialReadingMode(record.readingMode || 'CHAPTERS');
-      setInitialStartVerse(record.verse);
-      setInitialEndVerse(record.verse ? undefined : undefined);
+      setInitialStartVerse(record.startVerse || record.verse);
+      setInitialEndVerse(record.endVerse);
       setIsFromBookmark(false);
+      setAutoStartPlayback(true);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }

@@ -223,23 +223,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Record last read position to persistent storage (Only when reading whole chapter and NOT opened from bookmark)
-  const recordCurrentReadingPosition = useCallback((verseNum?: number, preview?: string) => {
-    // If opened from a bookmark in TIER1, do not update last read progress
-    if (isFromBookmark) {
-      return;
-    }
-
-    // Only allow updating during whole chapter reading (整章朗讀)
-    if (readingMode === 'VERSES') {
-      return;
-    }
-
-    // If sub-verse range is specified instead of whole chapter, do not update
-    if (startVerseNum > 1 || (maxVersesForChapter > 0 && endVerseNum < maxVersesForChapter)) {
-      return;
-    }
-
+  // Record last read position to persistent storage
+  const recordCurrentReadingPosition = useCallback((targetChapter?: number, verseNum?: number, preview?: string) => {
+    const ch = targetChapter !== undefined ? targetChapter : viewChapter;
     let previewContent = preview;
     if (!previewContent && activeVerses.length > 0) {
       const vObj = verseNum ? activeVerses.find((v) => v.verse === verseNum) : activeVerses[0];
@@ -251,18 +237,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     saveLastReadRecord({
       bookId: selectedBook.id,
       bookName: bookName,
-      chapter: viewChapter,
+      chapter: ch,
       verse: verseNum,
       version: selectedVersion,
-      readingMode: 'CHAPTERS',
+      readingMode: readingMode,
+      startVerse: readingMode === 'VERSES' ? startVerseNum : undefined,
+      endVerse: readingMode === 'VERSES' ? endVerseNum : undefined,
       previewText: previewContent,
     });
   }, [
-    isFromBookmark,
     readingMode,
     startVerseNum,
     endVerseNum,
-    maxVersesForChapter,
     selectedBook.id,
     bookName,
     viewChapter,
@@ -445,10 +431,21 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             synthRef.current.cancel();
           }
 
-          const initialTargetVerse = (initialVerse && initialVerse > 1) ? initialVerse : (resultVerses[0]?.verse || 1);
+          const initialTargetVerse = (initialVerse && initialVerse > 1) ? initialVerse : (resultVerses[targetIndex]?.verse || 1);
           const firstVerseText = resultVerses[targetIndex]?.text || resultVerses[0]?.text || '';
           const previewStr = firstVerseText ? `第 ${initialTargetVerse} 節: ${firstVerseText.slice(0, 50)}...` : undefined;
-          recordCurrentReadingPosition(initialTargetVerse, previewStr);
+          
+          saveLastReadRecord({
+            bookId: selectedBook.id,
+            bookName: bookName,
+            chapter: viewChapter,
+            verse: initialTargetVerse,
+            version: selectedVersion,
+            readingMode: readingMode,
+            startVerse: readingMode === 'VERSES' ? startVerseNum : undefined,
+            endVerse: readingMode === 'VERSES' ? endVerseNum : undefined,
+            previewText: previewStr,
+          });
 
           // Ensure view scrolls to the target verse of the chapter
           setTimeout(() => {
@@ -726,7 +723,17 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       utterance.onstart = () => {
         setIsPlaying(true);
         setCurrentVerseIndex(index);
-        recordCurrentReadingPosition(verseObj.verse, `第 ${verseObj.verse} 節: ${verseObj.text.slice(0, 50)}...`);
+        saveLastReadRecord({
+          bookId: selectedBook.id,
+          bookName: bookName,
+          chapter: verseObj.chapter,
+          verse: verseObj.verse,
+          version: selectedVersion,
+          readingMode: readingMode,
+          startVerse: readingMode === 'VERSES' ? startVerseNum : undefined,
+          endVerse: readingMode === 'VERSES' ? endVerseNum : undefined,
+          previewText: `第 ${verseObj.verse} 節: ${verseObj.text.slice(0, 50)}...`,
+        });
       };
 
       utterance.onend = () => {
@@ -989,7 +996,19 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onPlaying={() => {
           setIsAudioBuffering(false);
           setIsPlaying(true);
-          recordCurrentReadingPosition(1);
+          const currentVerses = activeVersesRef.current;
+          const firstV = currentVerses[0];
+          saveLastReadRecord({
+            bookId: selectedBook.id,
+            bookName: bookName,
+            chapter: viewChapterRef.current,
+            verse: firstV?.verse || 1,
+            version: selectedVersion,
+            readingMode: readingMode,
+            startVerse: readingMode === 'VERSES' ? startVerseNum : undefined,
+            endVerse: readingMode === 'VERSES' ? endVerseNum : undefined,
+            previewText: firstV ? `第 ${firstV.verse} 節: ${firstV.text.slice(0, 50)}...` : undefined,
+          });
         }}
         onPause={() => setIsPlaying(false)}
         onEnded={handleAudioEnded}
