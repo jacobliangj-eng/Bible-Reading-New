@@ -23,6 +23,7 @@ export default function App() {
   const [initialStartVerse, setInitialStartVerse] = useState<number | undefined>(undefined);
   const [initialEndVerse, setInitialEndVerse] = useState<number | undefined>(undefined);
   const [isFromBookmark, setIsFromBookmark] = useState<boolean>(false);
+  const [autoStartPlayback, setAutoStartPlayback] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Global Playback, Voice, Font Size, Pitch & Night Mode State
@@ -115,14 +116,15 @@ export default function App() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
-  const handleSelectBook = (book: BibleBook) => {
+  const handleSelectBook = (book: BibleBook, chapter: number = 1, autoPlay: boolean = false) => {
     setSelectedBook(book);
-    setInitialChapter(1);
+    setInitialChapter(chapter);
     setInitialVerse(undefined);
     setInitialReadingMode(undefined);
     setInitialStartVerse(undefined);
     setInitialEndVerse(undefined);
     setIsFromBookmark(false);
+    setAutoStartPlayback(autoPlay);
     setCurrentTier('TIER3');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -230,6 +232,7 @@ export default function App() {
             initialReadingMode={initialReadingMode}
             initialStartVerse={initialStartVerse}
             initialEndVerse={initialEndVerse}
+            onSelectBook={handleSelectBook}
             onGoBackToTier2={handleGoBackToTier2}
             onGoHome={handleGoHome}
             onOpenSettings={() => setIsSettingsOpen(true)}
@@ -239,6 +242,7 @@ export default function App() {
             fontSize={fontSize}
             setFontSize={setFontSize}
             selectedVoiceName={selectedVoiceName}
+            autoStartPlayback={autoStartPlayback}
             isFromBookmark={isFromBookmark}
           />
         )}

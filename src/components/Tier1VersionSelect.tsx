@@ -199,7 +199,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                   上次朗讀進度
                 </span>
                 <span className="text-[10px] text-yellow-500/80 font-mono">
-                  {new Date(lastRead.timestamp).toLocaleDateString('zh-TW', {
+                  {new Date(lastRead.updatedAt).toLocaleDateString('zh-TW', {
                     month: '2-digit',
                     day: '2-digit',
                     hour: '2-digit',

@@ -15,7 +15,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
-import { VERSIONS } from '../data/bibleBooks';
+import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import { fetchChapterVerses, getFhlChapterAudioUrls } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
@@ -29,6 +29,7 @@ interface Tier3ScriptureReaderProps {
   initialReadingMode?: ReadingMode;
   initialStartVerse?: number;
   initialEndVerse?: number;
+  onSelectBook?: (book: BibleBook, chapter?: number, autoPlay?: boolean) => void;
   onGoBackToTier2: () => void;
   onGoHome: () => void;
   onOpenSettings?: () => void;
@@ -50,6 +51,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   initialReadingMode,
   initialStartVerse,
   initialEndVerse,
+  onSelectBook,
   onGoBackToTier2,
   onGoHome,
   onOpenSettings,
@@ -91,7 +93,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       setEndChapter(selectedBook.chaptersCount);
       setReadingMode('BOOK');
     } else if (initialReadingMode === 'CHAPTERS') {
-      setEndChapter(initCh);
+      setEndChapter(selectedBook.chaptersCount);
       setReadingMode('CHAPTERS');
     } else if (initialReadingMode === 'VERSES' || (initialStartVerse !== undefined && initialEndVerse !== undefined)) {
       setEndChapter(initCh);
@@ -443,6 +445,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             synthRef.current.cancel();
           }
 
+          const initialTargetVerse = (initialVerse && initialVerse > 1) ? initialVerse : (resultVerses[0]?.verse || 1);
+          const firstVerseText = resultVerses[targetIndex]?.text || resultVerses[0]?.text || '';
+          const previewStr = firstVerseText ? `第 ${initialTargetVerse} 節: ${firstVerseText.slice(0, 50)}...` : undefined;
+          recordCurrentReadingPosition(initialTargetVerse, previewStr);
+
           // Ensure view scrolls to the target verse of the chapter
           setTimeout(() => {
             if (verseRefs.current[targetIndex]) {
@@ -520,27 +527,92 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   }, [viewChapter, selectedBook.number, isFhlMp3Mode]);
 
+  // Advance to next book's chapter 1 if at the end of the current book
+  const advanceToNextBook = useCallback(() => {
+    const currentBookIndex = BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id);
+    if (currentBookIndex >= 0 && currentBookIndex < BIBLE_BOOKS.length - 1) {
+      const nextBook = BIBLE_BOOKS[currentBookIndex + 1];
+      if (nextBook && onSelectBook) {
+        if (synthRef.current) {
+          synthRef.current.cancel();
+        }
+        shouldAutoPlayRef.current = true;
+        onSelectBook(nextBook, 1, true);
+        return true;
+      }
+    }
+    return false;
+  }, [selectedBook.id, onSelectBook]);
+
   // Touch Swipe Handlers for Chapter Switching (向右滑：上一章, 向左滑：下一章)
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
 
+  // Quick Chapter Jump from Navigation Pill (直接輸入章數跳轉)
+  const [chapterInputText, setChapterInputText] = useState<string>(String(viewChapter));
+  const [isChapterInputFocused, setIsChapterInputFocused] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isChapterInputFocused) {
+      setChapterInputText(String(viewChapter));
+    }
+  }, [viewChapter, isChapterInputFocused]);
+
+  const handleJumpToChapter = (chapterNum: number) => {
+    const clamped = Math.max(1, Math.min(chapterNum, selectedBook.chaptersCount));
+    if (synthRef.current) {
+      synthRef.current.cancel();
+    }
+    shouldAutoPlayRef.current = isPlaying;
+    setViewChapter(clamped);
+    setTargetChapter(clamped);
+    setStartChapter(clamped);
+    setEndChapter(selectedBook.chaptersCount);
+    setAudioCurrentTime(0);
+    setChapterInputText(String(clamped));
+  };
+
   const handlePrevChapter = () => {
-    if (viewChapter > minChapter) {
+    if (viewChapter > 1) {
       if (synthRef.current) {
         synthRef.current.cancel();
       }
       shouldAutoPlayRef.current = isPlaying;
       setViewChapter((prev) => prev - 1);
+    } else if (viewChapter === 1) {
+      const currentBookIndex = BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id);
+      if (currentBookIndex > 0) {
+        const prevBook = BIBLE_BOOKS[currentBookIndex - 1];
+        if (prevBook && onSelectBook) {
+          if (synthRef.current) {
+            synthRef.current.cancel();
+          }
+          shouldAutoPlayRef.current = isPlaying;
+          onSelectBook(prevBook, prevBook.chaptersCount, isPlaying);
+        }
+      }
     }
   };
 
   const handleNextChapter = () => {
-    if (viewChapter < maxChapter) {
+    if (viewChapter < selectedBook.chaptersCount) {
       if (synthRef.current) {
         synthRef.current.cancel();
       }
       shouldAutoPlayRef.current = isPlaying;
       setViewChapter((prev) => prev + 1);
+    } else if (viewChapter >= selectedBook.chaptersCount) {
+      const currentBookIndex = BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id);
+      if (currentBookIndex >= 0 && currentBookIndex < BIBLE_BOOKS.length - 1) {
+        const nextBook = BIBLE_BOOKS[currentBookIndex + 1];
+        if (nextBook && onSelectBook) {
+          if (synthRef.current) {
+            synthRef.current.cancel();
+          }
+          shouldAutoPlayRef.current = isPlaying;
+          onSelectBook(nextBook, 1, isPlaying);
+        }
+      }
     }
   };
 
@@ -575,10 +647,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     (index: number) => {
       const currentVerses = activeVersesRef.current;
       if (!synthRef.current || index < 0 || index >= currentVerses.length) {
-        if (viewChapterRef.current < maxChapterRef.current) {
-          shouldAutoPlayRef.current = true;
-          setViewChapter((prev) => prev + 1);
-        } else if (isInfiniteLoopRef.current) {
+        if (isInfiniteLoopRef.current) {
           if (viewChapterRef.current === minChapterRef.current) {
             setCurrentVerseIndex(0);
             setTimeout(() => {
@@ -589,7 +658,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             setViewChapter(minChapterRef.current);
           }
         } else {
-          setIsPlaying(false);
+          // Single playback mode (非循環狀態) - 自動朗讀下一章
+          if (viewChapterRef.current < selectedBook.chaptersCount) {
+            shouldAutoPlayRef.current = true;
+            setViewChapter((prev) => prev + 1);
+          } else {
+            const advanced = advanceToNextBook();
+            if (advanced) return;
+            setIsPlaying(false);
+          }
         }
         return;
       }
@@ -658,10 +735,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           setCurrentVerseIndex(nextIndex);
           speakVerse(nextIndex);
         } else {
-          if (viewChapterRef.current < maxChapterRef.current) {
-            shouldAutoPlayRef.current = true;
-            setViewChapter((prev) => prev + 1);
-          } else if (isInfiniteLoopRef.current) {
+          // 當前章節全部節朗讀完畢
+          if (isInfiniteLoopRef.current) {
             if (viewChapterRef.current === minChapterRef.current) {
               setCurrentVerseIndex(0);
               setTimeout(() => {
@@ -672,7 +747,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               setViewChapter(minChapterRef.current);
             }
           } else {
-            setIsPlaying(false);
+            // Single playback mode (非循環狀態) - 自動朗讀下一章
+            if (viewChapterRef.current < selectedBook.chaptersCount) {
+              shouldAutoPlayRef.current = true;
+              setViewChapter((prev) => prev + 1);
+            } else {
+              // 該卷書最後一章 -> 自動銜接下一卷書第一章
+              const advanced = advanceToNextBook();
+              if (advanced) return;
+              setIsPlaying(false);
+            }
           }
         }
       };
@@ -687,7 +771,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       currentUtteranceRef.current = utterance;
       synthRef.current.speak(utterance);
     },
-    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName, chapterUnit, isPsalm]
+    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName, chapterUnit, isPsalm, selectedBook.chaptersCount, advanceToNextBook]
   );
 
   // Play button handler
@@ -773,10 +857,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   // MP3 Ended Handler: Auto Advance or Infinite Loop
   const handleAudioEnded = () => {
-    if (viewChapterRef.current < maxChapterRef.current) {
-      shouldAutoPlayRef.current = true;
-      setViewChapter((prev) => prev + 1);
-    } else if (isInfiniteLoopRef.current) {
+    if (isInfiniteLoopRef.current) {
       if (viewChapterRef.current === minChapterRef.current) {
         if (audioRef.current) {
           audioRef.current.currentTime = 0;
@@ -788,8 +869,17 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         setViewChapter(minChapterRef.current);
       }
     } else {
-      setIsPlaying(false);
-      setAudioCurrentTime(0);
+      // Single playback mode (非循環狀態) - 自動朗讀下一章
+      if (viewChapterRef.current < selectedBook.chaptersCount) {
+        shouldAutoPlayRef.current = true;
+        setViewChapter((prev) => prev + 1);
+      } else {
+        // 該卷書最後一章 -> 自動銜接下一卷書第一章
+        const advanced = advanceToNextBook();
+        if (advanced) return;
+        setIsPlaying(false);
+        setAudioCurrentTime(0);
+      }
     }
   };
 
@@ -1113,9 +1203,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               onClick={handlePrevChapter}
-              disabled={viewChapter <= minChapter}
+              disabled={viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-                viewChapter <= minChapter
+                viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0
                   ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 cursor-pointer'
               }`}
@@ -1125,15 +1215,63 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               <span>上一{chapterUnit}</span>
             </button>
 
-            <span className="text-xs font-mono font-bold px-2.5 py-1 bg-yellow-950/80 border border-yellow-600/40 rounded-lg text-amber-200">
-              {viewChapter} / {maxChapter} {chapterUnit}
-            </span>
+            {/* Chapter Navigation Pill with Direct Input Support */}
+            <div
+              className="flex items-center text-xs font-mono font-bold px-2 py-0.5 bg-yellow-950/80 hover:bg-yellow-950 border border-yellow-600/40 hover:border-amber-400/80 rounded-lg text-amber-200 transition-all shadow-xs"
+              title={`可直接點擊或輸入想朗讀的${chapterUnit} (1~${selectedBook.chaptersCount})`}
+            >
+              <input
+                type="number"
+                min={1}
+                max={selectedBook.chaptersCount}
+                value={chapterInputText}
+                onChange={(e) => setChapterInputText(e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+                onFocus={(e) => {
+                  setIsChapterInputFocused(true);
+                  e.target.select();
+                }}
+                onBlur={() => {
+                  setIsChapterInputFocused(false);
+                  const parsed = parseInt(chapterInputText, 10);
+                  if (!isNaN(parsed)) {
+                    handleJumpToChapter(parsed);
+                  } else {
+                    setChapterInputText(String(viewChapter));
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const parsed = parseInt(chapterInputText, 10);
+                    if (!isNaN(parsed)) {
+                      handleJumpToChapter(parsed);
+                    } else {
+                      setChapterInputText(String(viewChapter));
+                    }
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === 'Escape') {
+                    setChapterInputText(String(viewChapter));
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="w-10 text-center bg-black/60 hover:bg-black/90 focus:bg-black text-amber-300 font-bold font-mono px-1 py-0.5 rounded border border-yellow-700/50 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text"
+                title={`輸入欲朗讀的${chapterUnit}數，按 Enter 立即跳轉`}
+              />
+              <span className="text-yellow-600/80 px-1 font-sans">/</span>
+              <span className="text-amber-200/90 pr-1">
+                {selectedBook.chaptersCount} {chapterUnit}
+              </span>
+            </div>
 
             <button
               onClick={handleNextChapter}
-              disabled={viewChapter >= maxChapter}
+              disabled={
+                viewChapter >= selectedBook.chaptersCount &&
+                BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
+              }
               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
-                viewChapter >= maxChapter
+                viewChapter >= selectedBook.chaptersCount &&
+                BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
                   ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 cursor-pointer'
               }`}
