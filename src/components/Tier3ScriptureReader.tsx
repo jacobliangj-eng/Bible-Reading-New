@@ -85,7 +85,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   useEffect(() => {
     const initCh = initialChapter ?? 1;
-    setStartChapter(initCh);
+    setStartChapter(1);
     setTargetChapter(initCh);
     setViewChapter(initCh);
 
@@ -96,7 +96,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       setEndChapter(selectedBook.chaptersCount);
       setReadingMode('CHAPTERS');
     } else if (initialReadingMode === 'VERSES' || (initialStartVerse !== undefined && initialEndVerse !== undefined)) {
-      setEndChapter(initCh);
+      setEndChapter(selectedBook.chaptersCount);
       setReadingMode('VERSES');
     } else {
       setEndChapter(selectedBook.chaptersCount);
@@ -563,8 +563,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     shouldAutoPlayRef.current = isPlaying;
     setViewChapter(clamped);
     setTargetChapter(clamped);
-    setStartChapter(clamped);
-    setEndChapter(selectedBook.chaptersCount);
+    if (startChapter > clamped) {
+      setStartChapter(1);
+    }
+    if (endChapter < clamped) {
+      setEndChapter(selectedBook.chaptersCount);
+    }
     setAudioCurrentTime(0);
     setChapterInputText(String(clamped));
   };
