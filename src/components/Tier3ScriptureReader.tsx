@@ -297,10 +297,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const playbackSpeedRef = useRef<number>(1.0);
   const speechPitchRef = useRef<number>(1.0);
   const isPlayingRef = useRef<boolean>(false);
+  const readingModeRef = useRef<ReadingMode>(readingMode);
 
   useEffect(() => {
     activeVersesRef.current = activeVerses;
   }, [activeVerses]);
+
+  useEffect(() => {
+    readingModeRef.current = readingMode;
+  }, [readingMode]);
 
   useEffect(() => {
     viewChapterRef.current = viewChapter;
@@ -648,24 +653,44 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     (index: number) => {
       const currentVerses = activeVersesRef.current;
       if (!synthRef.current || index < 0 || index >= currentVerses.length) {
-        if (isInfiniteLoopRef.current) {
-          if (viewChapterRef.current === minChapterRef.current) {
+        if (readingModeRef.current === 'VERSES') {
+          if (isInfiniteLoopRef.current) {
             setCurrentVerseIndex(0);
             setTimeout(() => {
               speakVerse(0);
             }, 100);
           } else {
-            shouldAutoPlayRef.current = true;
-            setViewChapter(minChapterRef.current);
+            setIsPlaying(false);
           }
-        } else {
-          // Single playback mode (非循環狀態) - 自動朗讀下一章
-          if (viewChapterRef.current < selectedBook.chaptersCount) {
+          return;
+        }
+
+        if (isInfiniteLoopRef.current) {
+          if (viewChapterRef.current < maxChapterRef.current) {
             shouldAutoPlayRef.current = true;
             setViewChapter((prev) => prev + 1);
           } else {
-            const advanced = advanceToNextBook();
-            if (advanced) return;
+            // 達到結束章節（例如路得記第4章），循環回到起始章節（第1章）
+            if (minChapterRef.current === maxChapterRef.current) {
+              setCurrentVerseIndex(0);
+              setTimeout(() => {
+                speakVerse(0);
+              }, 100);
+            } else {
+              shouldAutoPlayRef.current = true;
+              setViewChapter(minChapterRef.current);
+            }
+          }
+        } else {
+          // Single playback mode (非循環狀態) - 自動朗讀下一章
+          if (viewChapterRef.current < maxChapterRef.current) {
+            shouldAutoPlayRef.current = true;
+            setViewChapter((prev) => prev + 1);
+          } else {
+            if (maxChapterRef.current >= selectedBook.chaptersCount) {
+              const advanced = advanceToNextBook();
+              if (advanced) return;
+            }
             setIsPlaying(false);
           }
         }
@@ -747,25 +772,45 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           speakVerse(nextIndex);
         } else {
           // 當前章節全部節朗讀完畢
-          if (isInfiniteLoopRef.current) {
-            if (viewChapterRef.current === minChapterRef.current) {
+          if (readingModeRef.current === 'VERSES') {
+            if (isInfiniteLoopRef.current) {
               setCurrentVerseIndex(0);
               setTimeout(() => {
                 speakVerse(0);
               }, 100);
             } else {
+              setIsPlaying(false);
+            }
+            return;
+          }
+
+          if (isInfiniteLoopRef.current) {
+            if (viewChapterRef.current < maxChapterRef.current) {
               shouldAutoPlayRef.current = true;
-              setViewChapter(minChapterRef.current);
+              setViewChapter((prev) => prev + 1);
+            } else {
+              // 達到結束章節（例如路得記第4章），循環回到起始章節（第1章）
+              if (minChapterRef.current === maxChapterRef.current) {
+                setCurrentVerseIndex(0);
+                setTimeout(() => {
+                  speakVerse(0);
+                }, 100);
+              } else {
+                shouldAutoPlayRef.current = true;
+                setViewChapter(minChapterRef.current);
+              }
             }
           } else {
             // Single playback mode (非循環狀態) - 自動朗讀下一章
-            if (viewChapterRef.current < selectedBook.chaptersCount) {
+            if (viewChapterRef.current < maxChapterRef.current) {
               shouldAutoPlayRef.current = true;
               setViewChapter((prev) => prev + 1);
             } else {
               // 該卷書最後一章 -> 自動銜接下一卷書第一章
-              const advanced = advanceToNextBook();
-              if (advanced) return;
+              if (maxChapterRef.current >= selectedBook.chaptersCount) {
+                const advanced = advanceToNextBook();
+                if (advanced) return;
+              }
               setIsPlaying(false);
             }
           }
@@ -782,7 +827,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       currentUtteranceRef.current = utterance;
       synthRef.current.speak(utterance);
     },
-    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName, chapterUnit, isPsalm, selectedBook.chaptersCount, advanceToNextBook]
+    [versionInfo.langCode, selectedVersion, bookName, selectedVoiceName, chapterUnit, isPsalm, selectedBook.chaptersCount, advanceToNextBook, readingMode, startVerseNum, endVerseNum]
   );
 
   // Play button handler
@@ -869,25 +914,33 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // MP3 Ended Handler: Auto Advance or Infinite Loop
   const handleAudioEnded = () => {
     if (isInfiniteLoopRef.current) {
-      if (viewChapterRef.current === minChapterRef.current) {
-        if (audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.playbackRate = playbackSpeedRef.current;
-          audioRef.current.play().catch((err) => console.warn(err));
-        }
-      } else {
+      if (viewChapterRef.current < maxChapterRef.current) {
         shouldAutoPlayRef.current = true;
-        setViewChapter(minChapterRef.current);
+        setViewChapter((prev) => prev + 1);
+      } else {
+        // 達到結束章節（例如路得記第4章），循環回到起始章節（第1章）
+        if (minChapterRef.current === maxChapterRef.current) {
+          if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.playbackRate = playbackSpeedRef.current;
+            audioRef.current.play().catch((err) => console.warn(err));
+          }
+        } else {
+          shouldAutoPlayRef.current = true;
+          setViewChapter(minChapterRef.current);
+        }
       }
     } else {
       // Single playback mode (非循環狀態) - 自動朗讀下一章
-      if (viewChapterRef.current < selectedBook.chaptersCount) {
+      if (viewChapterRef.current < maxChapterRef.current) {
         shouldAutoPlayRef.current = true;
         setViewChapter((prev) => prev + 1);
       } else {
         // 該卷書最後一章 -> 自動銜接下一卷書第一章
-        const advanced = advanceToNextBook();
-        if (advanced) return;
+        if (maxChapterRef.current >= selectedBook.chaptersCount) {
+          const advanced = advanceToNextBook();
+          if (advanced) return;
+        }
         setIsPlaying(false);
         setAudioCurrentTime(0);
       }
