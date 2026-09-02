@@ -36,6 +36,23 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 // In-memory cache for instant subsequent loading
 const verseCache = new Map<string, Verse[]>();
 
+// Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
+const CACHE_VERSION = 'bible_v5_';
+
+// Auto-clean old legacy un-colored caches on module load
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('bible_') && !key.startsWith(CACHE_VERSION)) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // Ignore storage cleanup errors
+  }
+}
+
 function extractText(content: unknown): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) return content.map(extractText).join(' ');
@@ -53,30 +70,31 @@ function extractText(content: unknown): string {
  */
 export function parseSegmentsFromHtml(content: string): VerseSegment[] {
   if (!content) return [];
-  if (!content.includes('browse-verse-red') && !content.includes('<span')) {
+  if (!content.includes('browse-verse-red') && !content.includes('color: red') && !content.includes('color:red') && !content.includes('<span')) {
     return [{ text: content.replace(/<[^>]+>/g, '').trim(), isRed: false }];
   }
 
   // Handle potentially unclosed span tags
   let normalized = content;
-  const openMatches = normalized.match(/<span[^>]*class=['\"][^'\"]*browse-verse-red[^'\"]*['\"][^>]*>/gi) || [];
+  const openMatches = normalized.match(/<span[^>]*class=['\"][^'\"]*browse-verse-red[^'\"]*['\"][^>]*>|<span[^>]*style=['\"][^'\"]*color:\s*red[^'\"]*['\"][^>]*>/gi) || [];
   const closeMatches = normalized.match(/<\/span>/gi) || [];
   if (openMatches.length > closeMatches.length) {
     normalized += '</span>'.repeat(openMatches.length - closeMatches.length);
   }
 
   const segments: VerseSegment[] = [];
-  const regex = /<span[^>]*class=['\"][^'\"]*browse-verse-red[^'\"]*['\"][^>]*>([\s\S]*?)<\/span>|([^<]+)/gi;
+  const regex = /<span[^>]*class=['\"][^'\"]*browse-verse-red[^'\"]*['\"][^>]*>([\s\S]*?)<\/span>|<span[^>]*style=['\"][^'\"]*color:\s*red[^'\"]*['\"][^>]*>([\s\S]*?)<\/span>|([^<]+)/gi;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(normalized)) !== null) {
-    if (match[1] !== undefined) {
-      const cleanText = match[1].replace(/<[^>]+>/g, '');
+    const redContent = match[1] ?? match[2];
+    if (redContent !== undefined) {
+      const cleanText = redContent.replace(/<[^>]+>/g, '');
       if (cleanText) {
         segments.push({ text: cleanText, isRed: true });
       }
-    } else if (match[2] !== undefined) {
-      const cleanText = match[2];
+    } else if (match[3] !== undefined) {
+      const cleanText = match[3];
       if (cleanText) {
         segments.push({ text: cleanText, isRed: false });
       }
@@ -86,6 +104,73 @@ export function parseSegmentsFromHtml(content: string): VerseSegment[] {
   return segments.length > 0
     ? segments
     : [{ text: content.replace(/<[^>]+>/g, '').trim(), isRed: false }];
+}
+
+/**
+ * Intelligent Red-Letter detector for CUV in case of network fallback without HTML tags.
+ * Spoken words of God (OT) and Jesus Christ (Gospels, Acts, Revelation) are marked with isRed: true.
+ */
+export function enrichSegmentsWithRedLetters(
+  rawText: string,
+  bookId: string,
+  _chapter?: number
+): VerseSegment[] {
+  if (!rawText) return [];
+
+  const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId);
+  const isApostolicOrRev = ['ACT', 'REV', '1CO'].includes(bookId);
+
+  // Match Chinese quote pairs 「...」
+  const quoteRegex = /「([^」]+)」/g;
+  const segments: VerseSegment[] = [];
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = quoteRegex.exec(rawText)) !== null) {
+    const before = rawText.slice(lastIdx, match.index);
+    if (before) {
+      segments.push({ text: before, isRed: false });
+    }
+
+    // Check if the dialogue is spoken by Jesus or God
+    const isOtherSpeaker =
+      before.includes('門徒') ||
+      before.includes('彼得') ||
+      before.includes('猶大') ||
+      before.includes('撒但') ||
+      before.includes('魔鬼') ||
+      before.includes('文士') ||
+      before.includes('法利賽人') ||
+      before.includes('祭司長') ||
+      before.includes('眾人') ||
+      before.includes('婦人') ||
+      before.includes('百夫長') ||
+      before.includes('彼拉多');
+
+    const isGodOrJesus =
+      before.includes('耶穌') ||
+      before.includes('基督') ||
+      before.includes('主說') ||
+      before.includes('主對') ||
+      before.includes('主又說') ||
+      before.includes('神說') ||
+      before.includes('耶和華') ||
+      before.includes('我實實在在') ||
+      (!isOtherSpeaker && (isGospel || isApostolicOrRev));
+
+    segments.push({
+      text: '「' + match[1] + '」',
+      isRed: isGodOrJesus,
+    });
+
+    lastIdx = match.index + match[0].length;
+  }
+
+  if (lastIdx < rawText.length) {
+    segments.push({ text: rawText.slice(lastIdx), isRed: false });
+  }
+
+  return segments.length > 0 ? segments : [{ text: rawText, isRed: false }];
 }
 
 /**
@@ -102,8 +187,8 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
 
   const endpoints = [
     `/api/bibletool/${fragment}`, // Local Express proxy (no CORS issues)
-    directUrl, // Direct fetch
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`, // Backup CORS proxy
+    `/api/bibletool?q=${encodeURIComponent(fragment)}`,
+    directUrl,
   ];
 
   for (const endpoint of endpoints) {
@@ -129,7 +214,12 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
         }) => {
           const rawContent = v.content || '';
           const plainText = rawContent.replace(/<[^>]+>/g, '').replace(/[\u3000\s]+/g, ' ').trim();
-          const segments = parseSegmentsFromHtml(rawContent);
+          let segments = parseSegmentsFromHtml(rawContent);
+
+          // If no HTML tags were present, enrich via contextual quotation rule
+          if (segments.length <= 1 && !segments[0]?.isRed) {
+            segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter);
+          }
 
           return {
             chapter: parseInt(v.chapter || String(chapter), 10),
@@ -150,7 +240,6 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
     }
   }
 
-  console.warn(`[BibleService] All BibleTool endpoints exhausted for UCV ${bookId} ${chapter}`);
   return null;
 }
 
@@ -172,11 +261,16 @@ async function fetchFromHelloAO(
       if (item.type === 'verse' && typeof item.number === 'number') {
         const rawText = extractText(item.content).replace(/\s+/g, ' ').trim();
         if (rawText) {
+          const segments =
+            transCode === 'cmn_cuv'
+              ? enrichSegmentsWithRedLetters(rawText, bookId, chapter)
+              : [{ text: rawText, isRed: false }];
+
           verses.push({
             chapter,
             verse: item.number,
             text: rawText,
-            segments: [{ text: rawText, isRed: false }],
+            segments,
           });
         }
       }
@@ -204,11 +298,12 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
     if (json.status === 'success' && Array.isArray(json.record)) {
       const verses: Verse[] = json.record.map((r: { chap: number; sec: number; bible_text: string }) => {
         const plainText = r.bible_text ? r.bible_text.replace(/[\u3000\s]+/g, ' ').trim() : '';
+        const segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter);
         return {
           chapter: r.chap || chapter,
           verse: r.sec,
           text: plainText,
-          segments: [{ text: plainText, isRed: false }],
+          segments,
         };
       });
       return verses.length > 0 ? verses : null;
@@ -238,17 +333,14 @@ export async function fetchChapterVerses(
     return verseCache.get(cacheKey)!;
   }
 
-  // 2. Check localStorage cache
+  // 2. Check localStorage cache with version prefix
   try {
-    const stored = localStorage.getItem(`bible_${cacheKey}`);
+    const stored = localStorage.getItem(`${CACHE_VERSION}${cacheKey}`);
     if (stored) {
       const parsed: Verse[] = JSON.parse(stored);
-      // Validate that cached CUV data contains rawContent from BibleTool (red letters)
       if (Array.isArray(parsed) && parsed.length > 0) {
-        if (version !== 'CUV' || parsed.some((v) => v.rawContent !== undefined)) {
-          verseCache.set(cacheKey, parsed);
-          return parsed;
-        }
+        verseCache.set(cacheKey, parsed);
+        return parsed;
       }
     }
   } catch {
@@ -277,7 +369,7 @@ export async function fetchChapterVerses(
   if (verses && verses.length > 0) {
     verseCache.set(cacheKey, verses);
     try {
-      localStorage.setItem(`bible_${cacheKey}`, JSON.stringify(verses));
+      localStorage.setItem(`${CACHE_VERSION}${cacheKey}`, JSON.stringify(verses));
     } catch {
       // Storage quota reached, ignore
     }

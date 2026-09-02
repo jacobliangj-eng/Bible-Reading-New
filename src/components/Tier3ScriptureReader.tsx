@@ -17,7 +17,7 @@ import {
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
-import { fetchChapterVerses, getFhlChapterAudioUrls } from '../services/bibleService';
+import { fetchChapterVerses, getFhlChapterAudioUrls, enrichSegmentsWithRedLetters } from '../services/bibleService';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
 
@@ -1414,19 +1414,26 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                             : 'text-zinc-800 group-hover:text-zinc-950'
                         }`}
                       >
-                        {v.segments && v.segments.length > 0 ? (
-                          v.segments.map((seg, sIdx) =>
+                        {(() => {
+                          const displaySegments =
+                            v.segments && v.segments.length > 0
+                              ? v.segments
+                              : enrichSegmentsWithRedLetters(v.text, selectedBook.id, v.chapter);
+
+                          return displaySegments.map((seg, sIdx) =>
                             seg.isRed ? (
-                              <span key={sIdx} className="verse-red-letter">
+                              <span
+                                key={sIdx}
+                                className="verse-red-letter text-red-600"
+                                style={{ color: '#dc2626' }}
+                              >
                                 {seg.text}
                               </span>
                             ) : (
                               <span key={sIdx}>{seg.text}</span>
                             )
-                          )
-                        ) : (
-                          v.text
-                        )}
+                          );
+                        })()}
                       </p>
                     </div>
                   </div>
@@ -1461,19 +1468,26 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 <span className="font-bold text-amber-800 mr-1.5">
                   【{bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}】
                 </span>
-                {selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0 ? (
-                  selectedCopyVerse.segments.map((seg, sIdx) =>
+                {(() => {
+                  const copySegments =
+                    selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0
+                      ? selectedCopyVerse.segments
+                      : enrichSegmentsWithRedLetters(selectedCopyVerse.text, selectedBook.id, selectedCopyVerse.chapter);
+
+                  return copySegments.map((seg, sIdx) =>
                     seg.isRed ? (
-                      <span key={sIdx} className="verse-red-letter">
+                      <span
+                        key={sIdx}
+                        className="verse-red-letter text-red-600"
+                        style={{ color: '#dc2626' }}
+                      >
                         {seg.text}
                       </span>
                     ) : (
                       <span key={sIdx}>{seg.text}</span>
                     )
-                  )
-                ) : (
-                  selectedCopyVerse.text
-                )}
+                  );
+                })()}
               </div>
             </div>
 

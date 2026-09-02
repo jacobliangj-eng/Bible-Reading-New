@@ -8,10 +8,24 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Enable CORS for all incoming client requests
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Proxy endpoint for bibletool.konline.org to bypass CORS
-  app.get('/api/bibletool/:fragment', async (req, res) => {
+  app.get(['/api/bibletool', '/api/bibletool/:fragment'], async (req, res) => {
     try {
-      const fragment = req.params.fragment;
+      const fragment = (req.params.fragment || (req.query.q as string) || '').trim();
+      if (!fragment) {
+        return res.status(400).json({ error: 'Missing fragment parameter' });
+      }
       const targetUrl = `https://bibletool.konline.org/retrieve/${fragment}`;
       const response = await fetch(targetUrl);
       if (!response.ok) {
