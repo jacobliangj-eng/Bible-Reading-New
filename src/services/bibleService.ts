@@ -38,7 +38,7 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 const verseCache = new Map<string, Verse[]>();
 
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v11_';
+const CACHE_VERSION = 'bible_v12_';
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
@@ -134,6 +134,11 @@ export function isGodOrJesusSpeaking(
     'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
     '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV',
   ].includes(bookId);
+
+  // Books with strictly human narrative dialogues and no direct divine quotes
+  if (['RUT', 'EST', 'ECC', 'SNG'].includes(bookId)) {
+    return false;
+  }
 
   // Ten Commandments (Exodus 20:2-17, Deuteronomy 5:6-21)
   if (verseNum !== undefined) {
@@ -427,13 +432,8 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
         }) => {
           const verseNum = parseInt(v.verse || '1', 10);
           const rawContent = v.content || '';
-          const plainText = rawContent.replace(/<[^>]+>/g, '').replace(/[\u3000\s]+/g, ' ').trim();
-          let segments = parseSegmentsFromHtml(rawContent);
-
-          // If no HTML tags were present, enrich via contextual quotation rule
-          if (segments.length <= 1 && !segments[0]?.isRed) {
-            segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter, verseNum);
-          }
+          const plainText = rawContent.replace(/<[^>]+>/g, '').trim();
+          const segments = parseSegmentsFromHtml(rawContent);
 
           const rawSubtitle = v.subtitle ? formatSubtitle(v.subtitle) : undefined;
           const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
@@ -573,10 +573,14 @@ export async function fetchChapterVerses(
   }
 
   let verses: Verse[] | null = null;
+  let isFromBibleTool = false;
 
-  // 3. For CUV (國語和合本), primary source is bibletool.konline.org with red-letter markup
+  // 3. For CUV (國語和合本), primary source is bibletool.konline.org with authentic red-letter markup
   if (version === 'CUV') {
     verses = await fetchFromBibleTool(bookId, chapter);
+    if (verses && verses.length > 0) {
+      isFromBibleTool = true;
+    }
   }
 
   // 4. Primary HelloAO API for KJV/LSG, or fallback for CUV
@@ -592,7 +596,7 @@ export async function fetchChapterVerses(
 
   // 6. If fetched successfully, cache and return
   if (verses && verses.length > 0) {
-    if (version === 'CUV') {
+    if (version === 'CUV' && !isFromBibleTool) {
       verses = enrichChapterVersesWithRedLetters(verses, bookId, chapter);
     }
 

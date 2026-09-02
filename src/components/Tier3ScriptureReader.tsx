@@ -17,7 +17,7 @@ import {
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
-import { fetchChapterVerses, getFhlChapterAudioUrls, enrichSegmentsWithRedLetters } from '../services/bibleService';
+import { fetchChapterVerses, getFhlChapterAudioUrls } from '../services/bibleService';
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
@@ -1427,13 +1427,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                           }`}
                         >
                           {(() => {
-                            const hasRed = v.segments && v.segments.some((s) => s.isRed);
                             const displaySegments =
-                              hasRed
-                                ? v.segments!
-                                : selectedVersion === 'CUV'
-                                ? enrichSegmentsWithRedLetters(v.text, selectedBook.id, v.chapter, v.verse)
-                                : v.segments && v.segments.length > 0
+                              v.segments && v.segments.length > 0
                                 ? v.segments
                                 : [{ text: v.text, isRed: false }];
 
@@ -1487,13 +1482,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   【{bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}】
                 </span>
                 {(() => {
-                  const hasRed = selectedCopyVerse.segments && selectedCopyVerse.segments.some((s) => s.isRed);
                   const copySegments =
-                    hasRed
-                      ? selectedCopyVerse.segments!
-                      : selectedVersion === 'CUV'
-                      ? enrichSegmentsWithRedLetters(selectedCopyVerse.text, selectedBook.id, selectedCopyVerse.chapter, selectedCopyVerse.verse)
-                      : selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0
+                    selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0
                       ? selectedCopyVerse.segments
                       : [{ text: selectedCopyVerse.text, isRed: false }];
 
