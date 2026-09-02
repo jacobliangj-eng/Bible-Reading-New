@@ -18,6 +18,7 @@ import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import { fetchChapterVerses, getFhlChapterAudioUrls, enrichSegmentsWithRedLetters } from '../services/bibleService';
+import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
 
@@ -1374,17 +1375,22 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           <div className="space-y-0">
             {activeVerses.map((v, idx) => {
               const isActive = isPlaying && currentVerseIndex === idx;
+              const sectionSubtitle =
+                v.subtitle ||
+                (selectedVersion === 'CUV'
+                  ? getCuratedSubtitle(selectedBook.id, v.chapter, v.verse)
+                  : undefined);
 
               return (
                 <React.Fragment key={`${v.chapter}_${v.verse}_${idx}`}>
-                  {/* Canonical Section Subtitle Header (分段小標題) */}
-                  {v.subtitle && (
-                    <div className="pt-3 pb-1 px-1 mt-1 mb-1 flex items-center gap-2 select-none">
-                      <span className="w-1.5 h-3.5 rounded-full bg-amber-600 shrink-0"></span>
+                  {/* Canonical Section Subtitle Header (分段小標題 - 獨立尊貴導讀標題條) */}
+                  {sectionSubtitle && (
+                    <div className="pt-4 pb-1.5 px-1 mt-2 mb-1 flex items-center gap-2 select-none">
+                      <span className="w-1.5 h-3.5 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs"></span>
                       <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5">
-                        {v.subtitle}
+                        {sectionSubtitle}
                       </h4>
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-300/70 to-transparent"></div>
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-400/80 via-amber-200/50 to-transparent"></div>
                     </div>
                   )}
 

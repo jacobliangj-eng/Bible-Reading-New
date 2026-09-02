@@ -38,7 +38,7 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 const verseCache = new Map<string, Verse[]>();
 
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v10_';
+const CACHE_VERSION = 'bible_v11_';
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
@@ -361,8 +361,10 @@ export function enrichChapterVersesWithRedLetters(
       }
     }
 
+    const curatedSub = getCuratedSubtitle(bookId, chapter, v.verse);
     return {
       ...v,
+      subtitle: v.subtitle || curatedSub,
       segments: segments.length > 0 ? segments : [{ text, isRed: false }],
     };
   });

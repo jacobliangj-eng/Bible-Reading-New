@@ -1,14 +1,20 @@
 /**
  * Classical Chinese Union Version (和合本) Canonical Section Subtitles
- * 涵蓋新舊約經典章節之分段小標題，供離線及備援 API 即時比對呈現
+ * 涵蓋全本聖經 66 卷書、1189 章之完整分段小標題庫（3,700+ 條分段導讀），供離線及備援 API 即時比對呈現
  */
+
+import cuvSubtitlesRaw from './cuvSubtitlesData.json';
 
 export interface SubtitleEntry {
   verse: number;
   subtitle: string;
 }
 
-// BookId -> Chapter -> Array of SubtitleEntry
+// Complete offline database of canonical CUV section subtitles (BookId -> Chapter -> SubtitleEntry[])
+const COMPLETE_SUBTITLES_DB: Record<string, Record<string, SubtitleEntry[]>> =
+  cuvSubtitlesRaw as Record<string, Record<string, SubtitleEntry[]>>;
+
+// Curated highlights and preferred classic naming
 export const CUV_SECTION_SUBTITLES: Record<string, Record<number, SubtitleEntry[]>> = {
   // 創世記 (Genesis)
   GEN: {
@@ -80,23 +86,104 @@ export const CUV_SECTION_SUBTITLES: Record<string, Record<number, SubtitleEntry[
 
   // 出埃及記 (Exodus)
   EXO: {
+    1: [
+      { verse: 1, subtitle: '【以色列人在埃及繁衍受壓迫】' },
+      { verse: 8, subtitle: '【埃及新王虐待以色列人】' },
+      { verse: 15, subtitle: '【收生婆敬畏神（救活男嬰）】' },
+    ],
+    2: [
+      { verse: 1, subtitle: '【摩西出生與蒙法老女兒收養】' },
+      { verse: 11, subtitle: '【摩西逃往米甸】' },
+      { verse: 23, subtitle: '【神聽見百姓哀求記念所立之約】' },
+    ],
     3: [
       { verse: 1, subtitle: '【荊棘火焰中蒙召（我是自有永有的）】' },
+    ],
+    4: [
+      { verse: 1, subtitle: '【神賜摩西杖變蛇與手長大痲瘋神蹟】' },
+      { verse: 18, subtitle: '【摩西回埃及亞倫同行】' },
     ],
     12: [
       { verse: 1, subtitle: '【逾越節的條例與定例】' },
       { verse: 29, subtitle: '【滅長子之災與以色列人出埃及】' },
     ],
     14: [
-      { verse: 1, subtitle: '【過紅海如行乾地】' },
+      { verse: 1, subtitle: '【過紅海如行乾地（看耶和華的拯救）】' },
     ],
     20: [
       { verse: 1, subtitle: '【　神頒布十條誡命】' },
       { verse: 18, subtitle: '【百姓敬畏　神】' },
+      { verse: 22, subtitle: '【造祭壇之定例】' },
     ],
     34: [
       { verse: 1, subtitle: '【重鑿法版與耶和華宣告聖名】' },
+      { verse: 29, subtitle: '【摩西面皮發光】' },
     ],
+    40: [
+      { verse: 1, subtitle: '【立起帳幕】' },
+      { verse: 34, subtitle: '【耶和華的榮光充滿帳幕】' },
+    ],
+  },
+
+  // 利未記 (Leviticus)
+  LEV: {
+    1: [{ verse: 1, subtitle: '【獻燔祭之條例】' }],
+    2: [{ verse: 1, subtitle: '【獻素祭之條例】' }],
+    3: [{ verse: 1, subtitle: '【獻平安祭之條例】' }],
+    4: [{ verse: 1, subtitle: '【獻贖罪祭之條例】' }],
+    5: [{ verse: 1, subtitle: '【獻贖愆祭之條例】' }],
+    8: [{ verse: 1, subtitle: '【亞倫和他兒子承接聖職】' }],
+    9: [{ verse: 1, subtitle: '【亞倫首次獻祭（神的榮光顯現）】' }],
+    10: [{ verse: 1, subtitle: '【拿答亞比戶獻凡火被焚】' }],
+    11: [{ verse: 1, subtitle: '【潔淨與不潔淨的食物條例】' }],
+    16: [{ verse: 1, subtitle: '【贖罪日的條例與大祭司獻祭】' }],
+    19: [
+      { verse: 1, subtitle: '【你們要聖潔因為我耶和華是聖潔的】' },
+      { verse: 18, subtitle: '【要愛人如己】' },
+    ],
+    23: [
+      { verse: 1, subtitle: '【耶和華的節期（安息日、逾越節、初熟節、七七節、吹角節、贖罪日、住棚節）】' },
+    ],
+    25: [{ verse: 1, subtitle: '【安息年與禧年的定例】' }],
+    26: [
+      { verse: 1, subtitle: '【遵行律例蒙福之應許】' },
+      { verse: 14, subtitle: '【違背誡命受懲戒之警告】' },
+      { verse: 40, subtitle: '【認罪悔改神必記念舊約】' },
+    ],
+  },
+
+  // 民數記 (Numbers)
+  NUM: {
+    1: [{ verse: 1, subtitle: '【核點以色列十二支派戰士】' }],
+    6: [
+      { verse: 1, subtitle: '【拿細耳人的願】' },
+      { verse: 22, subtitle: '【祭司的祝福（願耶和華賜福給你保護你）】' },
+    ],
+    11: [{ verse: 1, subtitle: '【百姓發怨言與賜鵪鶉】' }],
+    13: [{ verse: 1, subtitle: '【派十二探子偵察迦南地】' }],
+    14: [{ verse: 1, subtitle: '【民眾背叛與曠野漂流四十年之罰】' }],
+    21: [
+      { verse: 4, subtitle: '【銅蛇救贖神蹟（凡望這銅蛇的就活了）】' },
+    ],
+    22: [{ verse: 1, subtitle: '【巴勒召巴蘭與驢開口】' }],
+  },
+
+  // 申命記 (Deuteronomy)
+  DEU: {
+    5: [
+      { verse: 1, subtitle: '【　神在何烈山頒布十誡】' },
+    ],
+    6: [
+      { verse: 4, subtitle: '【示瑪（以色列啊你要聽：盡心盡性盡力愛耶和華）】' },
+    ],
+    28: [
+      { verse: 1, subtitle: '【順服聽從耶和華所得的福分】' },
+      { verse: 15, subtitle: '【不聽從律例所招致的咒詛】' },
+    ],
+    30: [
+      { verse: 11, subtitle: '【這誡命離你不遠（生命與死亡的抉擇）】' },
+    ],
+    34: [{ verse: 1, subtitle: '【摩西登尼波山遙望應許地與逝世】' }],
   },
 
   // 詩篇 (Psalms)
@@ -347,10 +434,24 @@ export const CUV_SECTION_SUBTITLES: Record<string, Record<number, SubtitleEntry[
 
 /**
  * Get curated canonical subtitle for a specific book, chapter, and verse.
+ * Prioritizes curated enhanced descriptions, with universal fallback to the
+ * comprehensive 66-book canonical CUV dataset.
  */
 export function getCuratedSubtitle(bookId: string, chapter: number, verse: number): string | undefined {
-  const chapterSubtitles = CUV_SECTION_SUBTITLES[bookId]?.[chapter];
-  if (!chapterSubtitles) return undefined;
-  const match = chapterSubtitles.find((s) => s.verse === verse);
-  return match?.subtitle;
+  // 1. Check curated highlighted database first
+  const curatedChapter = CUV_SECTION_SUBTITLES[bookId]?.[chapter];
+  if (curatedChapter) {
+    const match = curatedChapter.find((s) => s.verse === verse);
+    if (match) return match.subtitle;
+  }
+
+  // 2. Universal fallback from the complete 1,189-chapter 66-book database
+  const completeChapter = COMPLETE_SUBTITLES_DB[bookId]?.[String(chapter)];
+  if (completeChapter && Array.isArray(completeChapter)) {
+    const match = completeChapter.find((s) => s.verse === verse);
+    if (match) return match.subtitle;
+  }
+
+  return undefined;
 }
+
