@@ -1270,11 +1270,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
       {/* Scripture Verses Display List with Swipe Gesture Support */}
       <div
-        className="gold-card p-3 md:p-4 rounded-xl min-h-[350px] space-y-2 touch-pan-y"
+        className="bg-white text-zinc-900 border-2 border-amber-300/80 shadow-2xl p-3.5 md:p-5 rounded-2xl min-h-[350px] space-y-3 touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center justify-center sm:justify-end pb-2.5 border-b border-yellow-800/40">
+        <div className="flex items-center justify-center sm:justify-end pb-2.5 border-b border-amber-100">
           {/* Chapter Navigation Bar */}
           <div className="flex items-center gap-1.5">
             <button
@@ -1282,18 +1282,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               disabled={viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
                 viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0
-                  ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 cursor-pointer'
+                  ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
+                  : 'bg-amber-50/80 border-amber-300/80 text-amber-900 hover:bg-amber-100 hover:border-amber-400 cursor-pointer shadow-xs'
               }`}
               title={`上一${chapterUnit} (向右滑動)`}
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-3.5 h-3.5 text-amber-700" />
               <span>上一{chapterUnit}</span>
             </button>
 
             {/* Chapter Navigation Pill with Direct Input Support */}
             <div
-              className="flex items-center text-xs font-mono font-bold px-2 py-0.5 bg-yellow-950/80 hover:bg-yellow-950 border border-yellow-600/40 hover:border-amber-400/80 rounded-lg text-amber-200 transition-all shadow-xs"
+              className="flex items-center text-xs font-mono font-bold px-2 py-0.5 bg-amber-50/90 hover:bg-amber-100/90 border border-amber-300/80 hover:border-amber-400 rounded-lg text-amber-900 transition-all shadow-xs"
               title={`可直接點擊或輸入想朗讀的${chapterUnit} (1~${selectedBook.chaptersCount})`}
             >
               <input
@@ -1330,11 +1330,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                className="w-10 text-center bg-black/60 hover:bg-black/90 focus:bg-black text-amber-300 font-bold font-mono px-1 py-0.5 rounded border border-yellow-700/50 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text"
+                className="w-10 text-center bg-white hover:bg-amber-50/50 focus:bg-white text-amber-900 font-bold font-mono px-1 py-0.5 rounded border border-amber-300 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text"
                 title={`輸入欲朗讀的${chapterUnit}數，按 Enter 立即跳轉`}
               />
-              <span className="text-yellow-600/80 px-1 font-sans">/</span>
-              <span className="text-amber-200/90 pr-1">
+              <span className="text-amber-600/70 px-1 font-sans">/</span>
+              <span className="text-amber-800 pr-1">
                 {selectedBook.chaptersCount} {chapterUnit}
               </span>
             </div>
@@ -1348,30 +1348,30 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
                 viewChapter >= selectedBook.chaptersCount &&
                 BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
-                  ? 'opacity-30 border-zinc-800 text-zinc-600 cursor-not-allowed'
-                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400 cursor-pointer'
+                  ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
+                  : 'bg-amber-50/80 border-amber-300/80 text-amber-900 hover:bg-amber-100 hover:border-amber-400 cursor-pointer shadow-xs'
               }`}
               title={`下一${chapterUnit} (向左滑動)`}
             >
               <span>下一{chapterUnit}</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5 text-amber-700" />
             </button>
           </div>
         </div>
 
         {isLoadingVerses ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
-            <div className="w-8 h-8 border-3 border-yellow-600/30 border-t-amber-400 rounded-full animate-spin" />
-            <p className="text-amber-300 font-serif text-xs tracking-wide animate-pulse">
+            <div className="w-8 h-8 border-3 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
+            <p className="text-amber-800 font-serif text-xs font-medium tracking-wide animate-pulse">
               正在載入『{bookName}』正統聖經經文...
             </p>
           </div>
         ) : activeVerses.length === 0 ? (
-          <div className="text-center py-12 text-yellow-500/60 font-serif italic text-xs">
+          <div className="text-center py-12 text-zinc-400 font-serif italic text-xs">
             無相關經文資料
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-0">
             {activeVerses.map((v, idx) => {
               const isActive = isPlaying && currentVerseIndex === idx;
 
@@ -1382,34 +1382,51 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     verseRefs.current[idx] = el;
                   }}
                   onClick={() => handleVerseClick(v, idx)}
-                  className={`py-0.5 px-2 md:py-1 md:px-2.5 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
+                  className={`py-1 px-2 md:py-0.5 md:px-1 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
                     isActive
-                      ? 'active-verse bg-yellow-950/70 border border-yellow-500/60 shadow-sm shadow-amber-500/10'
-                      : 'bg-zinc-900/40 border border-zinc-800/70 hover:border-yellow-600/40 hover:bg-zinc-900/80'
+                      ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
+                      : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
                   }`}
                 >
                   <div className="flex items-start gap-2">
                     {/* Chapter & Verse Badge */}
                     <span
-                      className={`inline-block px-1.5 py-0 rounded text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
+                      className={`inline-block px-1.5 py-0 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
                         isActive
-                          ? 'bg-amber-400 text-black shadow-sm'
-                          : 'bg-yellow-950/80 text-amber-300 border border-yellow-700/40 group-hover:border-amber-400'
+                          ? 'bg-amber-500 text-black shadow-xs font-extrabold'
+                          : 'bg-amber-100 text-amber-900 border border-amber-300/80 group-hover:border-amber-400 group-hover:bg-amber-200/80'
                       }`}
                     >
                       {v.chapter}:{v.verse}
                     </span>
 
                     {/* Verse Text */}
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
+                      {v.subtitle && (
+                        <div className="text-amber-700 font-bold text-xs md:text-sm mb-0.5 font-serif tracking-wide">
+                          {v.subtitle}
+                        </div>
+                      )}
                       <p
-                        className={`font-serif tracking-normal transition-all ${getFontSizeClass()} ${
+                        className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed ${getFontSizeClass()} ${
                           isActive
-                            ? 'text-amber-100 font-normal'
-                            : 'text-zinc-200 group-hover:text-amber-200'
+                            ? 'text-zinc-950 font-medium'
+                            : 'text-zinc-800 group-hover:text-zinc-950'
                         }`}
                       >
-                        {v.text}
+                        {v.segments && v.segments.length > 0 ? (
+                          v.segments.map((seg, sIdx) =>
+                            seg.isRed ? (
+                              <span key={sIdx} className="verse-red-letter">
+                                {seg.text}
+                              </span>
+                            ) : (
+                              <span key={sIdx}>{seg.text}</span>
+                            )
+                          )
+                        ) : (
+                          v.text
+                        )}
                       </p>
                     </div>
                   </div>
@@ -1440,11 +1457,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
             <div className="space-y-1.5">
               <p className="text-xs text-yellow-500/80 font-medium">是否要複製以下經文？</p>
-              <div className="bg-zinc-950/90 p-3.5 rounded-xl border border-yellow-900/60 text-xs md:text-sm text-amber-100 leading-relaxed font-serif max-h-48 overflow-y-auto">
-                <span className="font-bold text-amber-400 mr-1.5">
+              <div className="bg-white p-3.5 rounded-xl border border-amber-300/80 text-xs md:text-sm text-zinc-900 leading-relaxed font-serif max-h-48 overflow-y-auto shadow-inner">
+                <span className="font-bold text-amber-800 mr-1.5">
                   【{bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}】
                 </span>
-                {selectedCopyVerse.text}
+                {selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0 ? (
+                  selectedCopyVerse.segments.map((seg, sIdx) =>
+                    seg.isRed ? (
+                      <span key={sIdx} className="verse-red-letter">
+                        {seg.text}
+                      </span>
+                    ) : (
+                      <span key={sIdx}>{seg.text}</span>
+                    )
+                  )
+                ) : (
+                  selectedCopyVerse.text
+                )}
               </div>
             </div>
 

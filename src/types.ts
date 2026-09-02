@@ -29,10 +29,18 @@ export interface BibleBook {
   };
 }
 
+export interface VerseSegment {
+  text: string;
+  isRed: boolean; // 是否為上帝或耶穌的話（紅字）
+}
+
 export interface Verse {
   chapter: number;
   verse: number;
-  text: string;
+  text: string; // 純文字版本（供語音朗讀、複製、搜尋等）
+  segments?: VerseSegment[]; // 結構化紅字片段（紅字版顯示）
+  rawContent?: string; // 包含 HTML span 標籤的原文字串
+  subtitle?: string; // 章節小標題（例如【　神創造天地】）
 }
 
 export type ReadingMode = 'BOOK' | 'CHAPTERS' | 'VERSES';
