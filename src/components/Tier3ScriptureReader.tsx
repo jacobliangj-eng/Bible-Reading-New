@@ -1376,68 +1376,75 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               const isActive = isPlaying && currentVerseIndex === idx;
 
               return (
-                <div
-                  key={`${v.chapter}_${v.verse}_${idx}`}
-                  ref={(el) => {
-                    verseRefs.current[idx] = el;
-                  }}
-                  onClick={() => handleVerseClick(v, idx)}
-                  className={`py-1 px-2 md:py-0.5 md:px-1 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
-                    isActive
-                      ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
-                      : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {/* Chapter & Verse Badge */}
-                    <span
-                      className={`inline-block px-1.5 py-0 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
-                        isActive
-                          ? 'bg-amber-500 text-black shadow-xs font-extrabold'
-                          : 'bg-amber-100 text-amber-900 border border-amber-300/80 group-hover:border-amber-400 group-hover:bg-amber-200/80'
-                      }`}
-                    >
-                      {v.chapter}:{v.verse}
-                    </span>
+                <React.Fragment key={`${v.chapter}_${v.verse}_${idx}`}>
+                  {/* Canonical Section Subtitle Header (分段小標題) */}
+                  {v.subtitle && (
+                    <div className="pt-3 pb-1 px-1 mt-1 mb-1 flex items-center gap-2 select-none">
+                      <span className="w-1.5 h-3.5 rounded-full bg-amber-600 shrink-0"></span>
+                      <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5">
+                        {v.subtitle}
+                      </h4>
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-300/70 to-transparent"></div>
+                    </div>
+                  )}
 
-                    {/* Verse Text */}
-                    <div className="flex-1 min-w-0">
-                      {v.subtitle && (
-                        <div className="text-amber-700 font-bold text-xs md:text-sm mb-0.5 font-serif tracking-wide">
-                          {v.subtitle}
-                        </div>
-                      )}
-                      <p
-                        className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed ${getFontSizeClass()} ${
+                  <div
+                    ref={(el) => {
+                      verseRefs.current[idx] = el;
+                    }}
+                    onClick={() => handleVerseClick(v, idx)}
+                    className={`py-1 px-2 md:py-0.5 md:px-1 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
+                      isActive
+                        ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
+                        : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {/* Chapter & Verse Badge */}
+                      <span
+                        className={`inline-block px-1.5 py-0 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
                           isActive
-                            ? 'text-zinc-950 font-medium'
-                            : 'text-zinc-800 group-hover:text-zinc-950'
+                            ? 'bg-amber-500 text-black shadow-xs font-extrabold'
+                            : 'bg-amber-100 text-amber-900 border border-amber-300/80 group-hover:border-amber-400 group-hover:bg-amber-200/80'
                         }`}
                       >
-                        {(() => {
-                          const displaySegments =
-                            v.segments && v.segments.length > 0
-                              ? v.segments
-                              : enrichSegmentsWithRedLetters(v.text, selectedBook.id, v.chapter);
+                        {v.chapter}:{v.verse}
+                      </span>
 
-                          return displaySegments.map((seg, sIdx) =>
-                            seg.isRed ? (
-                              <span
-                                key={sIdx}
-                                className="verse-red-letter text-red-600"
-                                style={{ color: '#dc2626' }}
-                              >
-                                {seg.text}
-                              </span>
-                            ) : (
-                              <span key={sIdx}>{seg.text}</span>
-                            )
-                          );
-                        })()}
-                      </p>
+                      {/* Verse Text */}
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed ${getFontSizeClass()} ${
+                            isActive
+                              ? 'text-zinc-950 font-medium'
+                              : 'text-zinc-800 group-hover:text-zinc-950'
+                          }`}
+                        >
+                          {(() => {
+                            const displaySegments =
+                              v.segments && v.segments.length > 0
+                                ? v.segments
+                                : enrichSegmentsWithRedLetters(v.text, selectedBook.id, v.chapter);
+
+                            return displaySegments.map((seg, sIdx) =>
+                              seg.isRed ? (
+                                <span
+                                  key={sIdx}
+                                  className="verse-red-letter text-red-600"
+                                  style={{ color: '#dc2626' }}
+                                >
+                                  {seg.text}
+                                </span>
+                              ) : (
+                                <span key={sIdx}>{seg.text}</span>
+                              )
+                            );
+                          })()}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </React.Fragment>
               );
             })}
           </div>

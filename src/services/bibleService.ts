@@ -1,4 +1,5 @@
 import { BibleVersion, Verse, VerseSegment } from '../types';
+import { getCuratedSubtitle } from '../data/cuvSubtitles';
 
 // Translation mapping for HelloAO API
 const HELLOAO_TRANSLATIONS: Record<BibleVersion, string> = {
@@ -37,7 +38,7 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 const verseCache = new Map<string, Verse[]>();
 
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v5_';
+const CACHE_VERSION = 'bible_v8_';
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
@@ -108,23 +109,27 @@ export function parseSegmentsFromHtml(content: string): VerseSegment[] {
 
 /**
  * Intelligent Red-Letter detector for CUV in case of network fallback without HTML tags.
- * Spoken words of God (OT) and Jesus Christ (Gospels, Acts, Revelation) are marked with isRed: true.
+ * Comprehensive detection for:
+ * 1. Spoken words of God (Old Testament: Genesis to Malachi)
+ * 2. Spoken words of Jesus Christ (Gospels, Acts, Revelation)
  */
 export function enrichSegmentsWithRedLetters(
   rawText: string,
   bookId: string,
-  _chapter?: number
+  chapter?: number
 ): VerseSegment[] {
   if (!rawText) return [];
 
   const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId);
   const isApostolicOrRev = ['ACT', 'REV', '1CO'].includes(bookId);
+  const isOT = !['MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH', 'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS', '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV'].includes(bookId);
 
   // Match Chinese quote pairs 「...」
   const quoteRegex = /「([^」]+)」/g;
   const segments: VerseSegment[] = [];
   let lastIdx = 0;
   let match: RegExpExecArray | null;
+  let previousSpeakerWasGodOrJesus = false;
 
   while ((match = quoteRegex.exec(rawText)) !== null) {
     const before = rawText.slice(lastIdx, match.index);
@@ -132,34 +137,86 @@ export function enrichSegmentsWithRedLetters(
       segments.push({ text: before, isRed: false });
     }
 
-    // Check if the dialogue is spoken by Jesus or God
+    const quoteContent = match[1];
+
+    // Check if there is an explicit other speaker right before this quote
     const isOtherSpeaker =
       before.includes('門徒') ||
       before.includes('彼得') ||
+      before.includes('約翰對') ||
       before.includes('猶大') ||
       before.includes('撒但') ||
       before.includes('魔鬼') ||
+      before.includes('蛇對') ||
+      before.includes('女人說') ||
+      before.includes('亞當說') ||
+      before.includes('法老') ||
+      before.includes('巴蘭') ||
+      before.includes('摩西對') ||
+      before.includes('百姓') ||
+      before.includes('眾人') ||
       before.includes('文士') ||
       before.includes('法利賽人') ||
       before.includes('祭司長') ||
-      before.includes('眾人') ||
       before.includes('婦人') ||
       before.includes('百夫長') ||
       before.includes('彼拉多');
 
-    const isGodOrJesus =
-      before.includes('耶穌') ||
-      before.includes('基督') ||
+    // God/Jesus speaker triggers in OT and NT
+    const hasGodOrJesusTrigger =
+      before.includes('神說') ||
+      before.includes('神對') ||
+      before.includes('神又對') ||
+      before.includes('神向') ||
+      before.includes('神吩咐') ||
+      before.includes('神呼叫') ||
+      before.includes('神命令') ||
+      before.includes('神起誓') ||
+      before.includes('耶和華說') ||
+      before.includes('耶和華對') ||
+      before.includes('耶和華曉諭') ||
+      before.includes('耶和華吩咐') ||
+      before.includes('耶和華向') ||
+      before.includes('耶和華降臨') ||
+      before.includes('耶和華如此說') ||
+      before.includes('萬軍之耶和華') ||
+      before.includes('主耶和華') ||
       before.includes('主說') ||
       before.includes('主對') ||
       before.includes('主又說') ||
-      before.includes('神說') ||
-      before.includes('耶和華') ||
+      before.includes('耶穌') ||
+      before.includes('基督') ||
       before.includes('我實實在在') ||
-      (!isOtherSpeaker && (isGospel || isApostolicOrRev));
+      before.includes('人子');
+
+    const continuationTrigger =
+      before.includes('又說') ||
+      before.includes('說：') ||
+      before.includes('回答說') ||
+      before.trim() === '' ||
+      before.trim() === '，' ||
+      before.trim() === '；' ||
+      before.trim() === '：';
+
+    let isGodOrJesus = false;
+
+    if (hasGodOrJesusTrigger && !isOtherSpeaker) {
+      isGodOrJesus = true;
+      previousSpeakerWasGodOrJesus = true;
+    } else if (continuationTrigger && previousSpeakerWasGodOrJesus && !isOtherSpeaker) {
+      isGodOrJesus = true;
+    } else if (!isOtherSpeaker && (isGospel || (bookId === 'REV' && [1, 2, 3, 21, 22].includes(chapter || 1)))) {
+      isGodOrJesus = true;
+      previousSpeakerWasGodOrJesus = true;
+    } else if (isOT && !isOtherSpeaker && (quoteContent.startsWith('我是耶和華') || quoteContent.startsWith('我耶和華') || quoteContent.startsWith('我必') || quoteContent.startsWith('我若') || quoteContent.includes('耶和華如此說') || quoteContent.includes('萬軍之耶和華說'))) {
+      isGodOrJesus = true;
+      previousSpeakerWasGodOrJesus = true;
+    } else {
+      previousSpeakerWasGodOrJesus = false;
+    }
 
     segments.push({
-      text: '「' + match[1] + '」',
+      text: '「' + quoteContent + '」',
       isRed: isGodOrJesus,
     });
 
@@ -174,9 +231,25 @@ export function enrichSegmentsWithRedLetters(
 }
 
 /**
+ * Format subtitle into consistent bracketed format: 【　神創造天地】
+ */
+function formatSubtitle(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let cleaned = raw.replace(/[\u3000\s]+/g, ' ').trim();
+  if (!cleaned) return undefined;
+  if (!cleaned.startsWith('【')) {
+    cleaned = '【' + cleaned;
+  }
+  if (!cleaned.endsWith('】')) {
+    cleaned = cleaned + '】';
+  }
+  return cleaned;
+}
+
+/**
  * Fetch Chinese Union Version with Red Letters from bibletool.konline.org
  * (耶大雅聖經工具 - 國語和合本紅字版)
- * Tries local server proxy first, then direct URL, then public CORS proxy.
+ * Tries local server proxy first, then direct URL.
  */
 async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Verse[] | null> {
   const bookNumber = BOOK_ID_TO_NUMBER[bookId];
@@ -221,13 +294,17 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
             segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter);
           }
 
+          const verseNum = parseInt(v.verse || '1', 10);
+          const rawSubtitle = v.subtitle ? formatSubtitle(v.subtitle) : undefined;
+          const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
+
           return {
             chapter: parseInt(v.chapter || String(chapter), 10),
-            verse: parseInt(v.verse || '1', 10),
+            verse: verseNum,
             text: plainText,
             rawContent,
             segments,
-            subtitle: v.subtitle ? v.subtitle.replace(/[\u3000\s]+/g, ' ').trim() : undefined,
+            subtitle: rawSubtitle || curatedSubtitle,
           };
         }
       );
@@ -266,11 +343,15 @@ async function fetchFromHelloAO(
               ? enrichSegmentsWithRedLetters(rawText, bookId, chapter)
               : [{ text: rawText, isRed: false }];
 
+          const verseNum = item.number;
+          const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
+
           verses.push({
             chapter,
-            verse: item.number,
+            verse: verseNum,
             text: rawText,
             segments,
+            subtitle: curatedSubtitle,
           });
         }
       }
@@ -298,12 +379,16 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
     if (json.status === 'success' && Array.isArray(json.record)) {
       const verses: Verse[] = json.record.map((r: { chap: number; sec: number; bible_text: string }) => {
         const plainText = r.bible_text ? r.bible_text.replace(/[\u3000\s]+/g, ' ').trim() : '';
+        const verseNum = r.sec;
         const segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter);
+        const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
+
         return {
           chapter: r.chap || chapter,
-          verse: r.sec,
+          verse: verseNum,
           text: plainText,
           segments,
+          subtitle: curatedSubtitle,
         };
       });
       return verses.length > 0 ? verses : null;
