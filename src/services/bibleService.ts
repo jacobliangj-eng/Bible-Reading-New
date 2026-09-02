@@ -38,14 +38,22 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 const verseCache = new Map<string, Verse[]>();
 
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v9_';
+const CACHE_VERSION = 'bible_v10_';
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const key = localStorage.key(i);
-      if (key && key.startsWith('bible_') && !key.startsWith(CACHE_VERSION)) {
+      if (
+        key &&
+        !key.startsWith(CACHE_VERSION) &&
+        (key.startsWith('bible_') ||
+          key.startsWith('CUV_') ||
+          key.startsWith('KJV_') ||
+          key.startsWith('LSG_') ||
+          key.startsWith('cmn_'))
+      ) {
         localStorage.removeItem(key);
       }
     }
@@ -121,7 +129,11 @@ export function isGodOrJesusSpeaking(
 ): boolean {
   const clean = preceding.replace(/[\u3000\s]+/g, '').trim();
   const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId);
-  const isOT = !['MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH', 'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS', '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV'].includes(bookId);
+  const isOT = ![
+    'MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH',
+    'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
+    '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV',
+  ].includes(bookId);
 
   // Ten Commandments (Exodus 20:2-17, Deuteronomy 5:6-21)
   if (verseNum !== undefined) {
@@ -129,64 +141,66 @@ export function isGodOrJesusSpeaking(
     if (bookId === 'DEU' && (chapter === 5 || chapter === undefined) && verseNum >= 6 && verseNum <= 21) return true;
   }
 
-  // 1. Direct speaker pattern: [Speaker] 對/向/與 [Listener] 說/吩咐/曉諭...
-  const matchDui = clean.match(/(?:，|；|。|^)([^，；。]+?)(?:對|向|與)([^，；。]+?)(?:說|吩咐|曉諭|回答|呼叫|宣告|問)/);
-  if (matchDui) {
-    const subject = matchDui[1];
-    const object = matchDui[2];
-    const isSubjectGod = /神|耶和華|主|基督|耶穌|全能者/.test(subject) && !/像神|如神|求神|隨從神/.test(subject);
-    const isObjectGod = /神|耶和華|主|基督|耶穌|全能者/.test(object);
+  // Get the clause since last period "。" (or full string)
+  const lastSentence = clean.split(/[。]/).pop() || clean;
 
-    if (isSubjectGod) {
+  // 1. Human prayer or dialogue TO God (e.g. 摩西對耶和華說, 求告耶和華說, 向神呼求說)
+  if (/(?:對|向|與|求)(?:耶和華|神|主|全能者)[^，；]*?(?:說|呼求|哀求|祈求|問|言)/.test(lastSentence)) {
+    return false;
+  }
+
+  // 2. Pattern: [Subject] (對|向|與) [Listener] (說|吩咐|曉諭|呼叫|呼喚|宣告|回答|問)
+  const matchDui = lastSentence.match(/([^，；]*?)(?:對|向|與)([^，；]+?)(?:說|吩咐|曉諭|呼叫|呼喚|宣告|回答|問)[：:]?$/);
+  if (matchDui) {
+    const rawSubj = matchDui[1].trim();
+    const rawObj = matchDui[2].trim();
+
+    const isGodInSentence = /(?:神|耶和華|主|基督|耶穌|全能者)/.test(lastSentence);
+    const isGodSubj = /神|耶和華|主|基督|耶穌|全能者/.test(rawSubj) || (rawSubj === '' && isGodInSentence);
+    const isGodObj = /神|耶和華|主|基督|耶穌|全能者/.test(rawObj);
+
+    if (isGodSubj && !isGodObj) return true;
+    if (isGodObj && !isGodSubj) return false;
+
+    // Continuation phrases (又對女人說, 又對亞當說, 便對他說)
+    if (rawSubj === '' || /^(?:又|便|就|神又|耶和華又)/.test(rawSubj) || /^(?:又對|便對|就對)/.test(lastSentence)) {
+      if (isGodInSentence || previousSpeakerWasGod || isOT) return true;
+    }
+
+    if (/蛇|撒但|魔鬼|亞當|女人|那人|婦人|法老|巴蘭|摩西|亞倫|約書亞|彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|船上的人|水手|他|他們|她|她們/.test(rawSubj)) {
+      return false;
+    }
+  }
+
+  // 3. Pattern: [Subject] (說|吩咐|曉諭|呼叫|呼喚|宣告|回答說|問說|喊著說)
+  const matchSay = lastSentence.match(/([^，；]*?)(?:說|吩咐|曉諭|呼叫|呼喚|宣告|回答說|問說|喊著說)[：:]?$/);
+  if (matchSay) {
+    const subj = matchSay[1].trim();
+    const isGodInSentence = /(?:神|耶和華|主|基督|耶穌|全能者)/.test(lastSentence);
+    if (/神|耶和華|主|基督|耶穌|全能者/.test(subj) || (subj === '' && isGodInSentence)) {
       return true;
     }
-    if (['又', '就', '便'].includes(subject)) {
-      if (/神|耶和華|主|基督|耶穌/.test(clean) || previousSpeakerWasGod) {
-        return true;
-      }
+    if (/^(?:又|便|就)$/.test(subj) || subj === '' || /^(?:又說|便說|就說)/.test(lastSentence)) {
+      if (isGodInSentence || previousSpeakerWasGod || isOT) return true;
     }
-    if (isObjectGod && !isSubjectGod) {
-      return false;
-    }
-    if (!isSubjectGod && !['又', '就', '便'].includes(subject) && /蛇|撒但|魔鬼|彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|撒拉|夏甲|利百加|拉結|利亞|亞當|該隱|法老|巴蘭|亞瑪力|非利士人|摩西|亞倫|約書亞|基甸|參孫|撒母耳|掃羅|大衛|所羅門|以利亞|以利沙/.test(subject)) {
+    if (/蛇|撒但|魔鬼|亞當|女人|那人|婦人|法老|巴蘭|摩西|亞倫|約書亞|彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|船上的人|水手|他|他們|她|她們/.test(subj)) {
       return false;
     }
   }
 
-  // 2. Direct say pattern: [Speaker] 說:
-  const matchSay = clean.match(/(?:，|；|。|^)([^，；。]+?)(?:說|回答說|問說|喊著說)[：:]?$/);
-  if (matchSay) {
-    const speaker = matchSay[1];
-    const isGod = /神|耶和華|主|基督|耶穌|全能者|人子/.test(speaker);
-    const isOther = /蛇|撒但|魔鬼|彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|撒拉|夏甲|利百加|拉結|利亞|亞當|該隱|法老|巴蘭|亞瑪力|非利士人|摩西|亞倫|約書亞|基甸|參孫|撒母耳|掃羅|大衛|所羅門|以利亞|以利沙/.test(speaker);
-    if (isGod) return true;
-    if (isOther) return false;
-  }
-
-  // 3. Clause contains God / Yahweh / Jesus speaking or commanding
-  if (/(?:神|耶和華|主|基督|耶穌|全能者)[^，；。]*?(?:說|吩咐|曉諭|呼叫|宣告|應許|起誓)/.test(clean) ||
-      /(?:神|耶和華|主|基督|耶穌)[^。]*?(?:又對|又說|說：)/.test(clean)) {
+  // 4. OT first-person divine declarations
+  if (isOT && /^[「『]?(?:我是耶和華|我是全能|我是自有永有|我耶和華|我必|我若|我已|我要|我的約|我所吩咐|耶和華如此說|萬軍之耶和華說|你們要歸我|因為我耶和華|我指著我的永生起誓)/.test(quoteContent)) {
     return true;
   }
 
-  // 4. Continuation clause
+  // 5. Continuation triggers
   if ((clean.includes('又對') || clean.includes('又說') || clean.includes('說：') || clean === '' || clean.endsWith('：') || clean.endsWith(':')) && previousSpeakerWasGod) {
     return true;
   }
 
-  // 5. OT First-person divine words
-  if (isOT) {
-    if (/^我是耶和華|^我是全能|^我是自有永有|^我耶和華|^我必|^我若|^我的約|^我所吩咐|耶和華如此說|萬軍之耶和華說|你們要歸我|因為我耶和華/.test(quoteContent)) {
-      return true;
-    }
-  }
-
-  // 6. Gospels default to Jesus unless another speaker is identified
-  if (isGospel) {
-    const hasOtherSpeaker = /彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|魔鬼|撒但/.test(clean);
-    if (!hasOtherSpeaker) {
-      return true;
-    }
+  // 6. Gospels default to Jesus unless human speaker indicated
+  if (isGospel && !/(?:彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|魔鬼|撒但)/.test(clean)) {
+    return true;
   }
 
   return false;
@@ -338,6 +352,15 @@ export function enrichChapterVersesWithRedLetters(
       }
     }
 
+    if (!inQuote) {
+      const lastSent = text.split(/[。]/).pop() || text;
+      if (/(?:神|耶和華|主|基督|耶穌)[^。]*?(?:說|吩咐|曉諭)[：:]?$/.test(lastSent)) {
+        isGodSpeakingContinuation = true;
+      } else if (/(?:百姓|官長|約書亞|摩西|亞倫|眾人|門徒|彼得)[^。]*?(?:說|吩咐)[：:]?$/.test(lastSent)) {
+        isGodSpeakingContinuation = false;
+      }
+    }
+
     return {
       ...v,
       segments: segments.length > 0 ? segments : [{ text, isRed: false }],
@@ -400,16 +423,16 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
           subtitle?: string;
           content?: string;
         }) => {
+          const verseNum = parseInt(v.verse || '1', 10);
           const rawContent = v.content || '';
           const plainText = rawContent.replace(/<[^>]+>/g, '').replace(/[\u3000\s]+/g, ' ').trim();
           let segments = parseSegmentsFromHtml(rawContent);
 
           // If no HTML tags were present, enrich via contextual quotation rule
           if (segments.length <= 1 && !segments[0]?.isRed) {
-            segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter);
+            segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter, verseNum);
           }
 
-          const verseNum = parseInt(v.verse || '1', 10);
           const rawSubtitle = v.subtitle ? formatSubtitle(v.subtitle) : undefined;
           const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
 
@@ -453,12 +476,12 @@ async function fetchFromHelloAO(
       if (item.type === 'verse' && typeof item.number === 'number') {
         const rawText = extractText(item.content).replace(/\s+/g, ' ').trim();
         if (rawText) {
+          const verseNum = item.number;
           const segments =
             transCode === 'cmn_cuv'
-              ? enrichSegmentsWithRedLetters(rawText, bookId, chapter)
+              ? enrichSegmentsWithRedLetters(rawText, bookId, chapter, verseNum)
               : [{ text: rawText, isRed: false }];
 
-          const verseNum = item.number;
           const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
 
           verses.push({
@@ -495,7 +518,7 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
       const verses: Verse[] = json.record.map((r: { chap: number; sec: number; bible_text: string }) => {
         const plainText = r.bible_text ? r.bible_text.replace(/[\u3000\s]+/g, ' ').trim() : '';
         const verseNum = r.sec;
-        const segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter);
+        const segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter, verseNum);
         const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
 
         return {
