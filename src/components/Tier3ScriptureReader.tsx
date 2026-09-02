@@ -1421,16 +1421,21 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                           }`}
                         >
                           {(() => {
+                            const hasRed = v.segments && v.segments.some((s) => s.isRed);
                             const displaySegments =
-                              v.segments && v.segments.length > 0
+                              hasRed
+                                ? v.segments!
+                                : selectedVersion === 'CUV'
+                                ? enrichSegmentsWithRedLetters(v.text, selectedBook.id, v.chapter, v.verse)
+                                : v.segments && v.segments.length > 0
                                 ? v.segments
-                                : enrichSegmentsWithRedLetters(v.text, selectedBook.id, v.chapter);
+                                : [{ text: v.text, isRed: false }];
 
                             return displaySegments.map((seg, sIdx) =>
                               seg.isRed ? (
                                 <span
                                   key={sIdx}
-                                  className="verse-red-letter text-red-600"
+                                  className="verse-red-letter text-red-600 font-medium"
                                   style={{ color: '#dc2626' }}
                                 >
                                   {seg.text}
@@ -1476,16 +1481,21 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   【{bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}】
                 </span>
                 {(() => {
+                  const hasRed = selectedCopyVerse.segments && selectedCopyVerse.segments.some((s) => s.isRed);
                   const copySegments =
-                    selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0
+                    hasRed
+                      ? selectedCopyVerse.segments!
+                      : selectedVersion === 'CUV'
+                      ? enrichSegmentsWithRedLetters(selectedCopyVerse.text, selectedBook.id, selectedCopyVerse.chapter, selectedCopyVerse.verse)
+                      : selectedCopyVerse.segments && selectedCopyVerse.segments.length > 0
                       ? selectedCopyVerse.segments
-                      : enrichSegmentsWithRedLetters(selectedCopyVerse.text, selectedBook.id, selectedCopyVerse.chapter);
+                      : [{ text: selectedCopyVerse.text, isRed: false }];
 
                   return copySegments.map((seg, sIdx) =>
                     seg.isRed ? (
                       <span
                         key={sIdx}
-                        className="verse-red-letter text-red-600"
+                        className="verse-red-letter text-red-600 font-medium"
                         style={{ color: '#dc2626' }}
                       >
                         {seg.text}

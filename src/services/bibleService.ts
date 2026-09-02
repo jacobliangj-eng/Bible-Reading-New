@@ -38,7 +38,7 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 const verseCache = new Map<string, Verse[]>();
 
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v8_';
+const CACHE_VERSION = 'bible_v9_';
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
@@ -108,7 +108,92 @@ export function parseSegmentsFromHtml(content: string): VerseSegment[] {
 }
 
 /**
- * Intelligent Red-Letter detector for CUV in case of network fallback without HTML tags.
+ * Precise divine speaker detection for Old & New Testament scriptures.
+ * Distinguishes God/Jesus speaking vs human characters speaking to God/others.
+ */
+export function isGodOrJesusSpeaking(
+  preceding: string,
+  previousSpeakerWasGod: boolean,
+  quoteContent: string,
+  bookId: string,
+  chapter?: number,
+  verseNum?: number
+): boolean {
+  const clean = preceding.replace(/[\u3000\s]+/g, '').trim();
+  const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId);
+  const isOT = !['MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH', 'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS', '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV'].includes(bookId);
+
+  // Ten Commandments (Exodus 20:2-17, Deuteronomy 5:6-21)
+  if (verseNum !== undefined) {
+    if (bookId === 'EXO' && (chapter === 20 || chapter === undefined) && verseNum >= 2 && verseNum <= 17) return true;
+    if (bookId === 'DEU' && (chapter === 5 || chapter === undefined) && verseNum >= 6 && verseNum <= 21) return true;
+  }
+
+  // 1. Direct speaker pattern: [Speaker] 對/向/與 [Listener] 說/吩咐/曉諭...
+  const matchDui = clean.match(/(?:，|；|。|^)([^，；。]+?)(?:對|向|與)([^，；。]+?)(?:說|吩咐|曉諭|回答|呼叫|宣告|問)/);
+  if (matchDui) {
+    const subject = matchDui[1];
+    const object = matchDui[2];
+    const isSubjectGod = /神|耶和華|主|基督|耶穌|全能者/.test(subject) && !/像神|如神|求神|隨從神/.test(subject);
+    const isObjectGod = /神|耶和華|主|基督|耶穌|全能者/.test(object);
+
+    if (isSubjectGod) {
+      return true;
+    }
+    if (['又', '就', '便'].includes(subject)) {
+      if (/神|耶和華|主|基督|耶穌/.test(clean) || previousSpeakerWasGod) {
+        return true;
+      }
+    }
+    if (isObjectGod && !isSubjectGod) {
+      return false;
+    }
+    if (!isSubjectGod && !['又', '就', '便'].includes(subject) && /蛇|撒但|魔鬼|彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|撒拉|夏甲|利百加|拉結|利亞|亞當|該隱|法老|巴蘭|亞瑪力|非利士人|摩西|亞倫|約書亞|基甸|參孫|撒母耳|掃羅|大衛|所羅門|以利亞|以利沙/.test(subject)) {
+      return false;
+    }
+  }
+
+  // 2. Direct say pattern: [Speaker] 說:
+  const matchSay = clean.match(/(?:，|；|。|^)([^，；。]+?)(?:說|回答說|問說|喊著說)[：:]?$/);
+  if (matchSay) {
+    const speaker = matchSay[1];
+    const isGod = /神|耶和華|主|基督|耶穌|全能者|人子/.test(speaker);
+    const isOther = /蛇|撒但|魔鬼|彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|撒拉|夏甲|利百加|拉結|利亞|亞當|該隱|法老|巴蘭|亞瑪力|非利士人|摩西|亞倫|約書亞|基甸|參孫|撒母耳|掃羅|大衛|所羅門|以利亞|以利沙/.test(speaker);
+    if (isGod) return true;
+    if (isOther) return false;
+  }
+
+  // 3. Clause contains God / Yahweh / Jesus speaking or commanding
+  if (/(?:神|耶和華|主|基督|耶穌|全能者)[^，；。]*?(?:說|吩咐|曉諭|呼叫|宣告|應許|起誓)/.test(clean) ||
+      /(?:神|耶和華|主|基督|耶穌)[^。]*?(?:又對|又說|說：)/.test(clean)) {
+    return true;
+  }
+
+  // 4. Continuation clause
+  if ((clean.includes('又對') || clean.includes('又說') || clean.includes('說：') || clean === '' || clean.endsWith('：') || clean.endsWith(':')) && previousSpeakerWasGod) {
+    return true;
+  }
+
+  // 5. OT First-person divine words
+  if (isOT) {
+    if (/^我是耶和華|^我是全能|^我是自有永有|^我耶和華|^我必|^我若|^我的約|^我所吩咐|耶和華如此說|萬軍之耶和華說|你們要歸我|因為我耶和華/.test(quoteContent)) {
+      return true;
+    }
+  }
+
+  // 6. Gospels default to Jesus unless another speaker is identified
+  if (isGospel) {
+    const hasOtherSpeaker = /彼得|約翰|雅各|多馬|猶大|門徒|眾人|百姓|法利賽人|文士|祭司長|官長|巡撫|彼拉多|希律|百夫長|婦人|魔鬼|撒但/.test(clean);
+    if (!hasOtherSpeaker) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Intelligent Red-Letter detector for CUV in case of network fallback or raw text parsing.
  * Comprehensive detection for:
  * 1. Spoken words of God (Old Testament: Genesis to Malachi)
  * 2. Spoken words of Jesus Christ (Gospels, Acts, Revelation)
@@ -116,118 +201,148 @@ export function parseSegmentsFromHtml(content: string): VerseSegment[] {
 export function enrichSegmentsWithRedLetters(
   rawText: string,
   bookId: string,
-  chapter?: number
+  chapter?: number,
+  verseNum?: number
 ): VerseSegment[] {
   if (!rawText) return [];
 
-  const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId);
-  const isApostolicOrRev = ['ACT', 'REV', '1CO'].includes(bookId);
-  const isOT = !['MAT', 'MRK', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH', 'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS', '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV'].includes(bookId);
-
-  // Match Chinese quote pairs 「...」
-  const quoteRegex = /「([^」]+)」/g;
-  const segments: VerseSegment[] = [];
-  let lastIdx = 0;
-  let match: RegExpExecArray | null;
-  let previousSpeakerWasGodOrJesus = false;
-
-  while ((match = quoteRegex.exec(rawText)) !== null) {
-    const before = rawText.slice(lastIdx, match.index);
-    if (before) {
-      segments.push({ text: before, isRed: false });
+  // Ten Commandments
+  if (verseNum !== undefined) {
+    if (
+      (bookId === 'EXO' && (chapter === 20 || chapter === undefined) && verseNum >= 2 && verseNum <= 17) ||
+      (bookId === 'DEU' && (chapter === 5 || chapter === undefined) && verseNum >= 6 && verseNum <= 21)
+    ) {
+      return [{ text: rawText, isRed: true }];
     }
-
-    const quoteContent = match[1];
-
-    // Check if there is an explicit other speaker right before this quote
-    const isOtherSpeaker =
-      before.includes('門徒') ||
-      before.includes('彼得') ||
-      before.includes('約翰對') ||
-      before.includes('猶大') ||
-      before.includes('撒但') ||
-      before.includes('魔鬼') ||
-      before.includes('蛇對') ||
-      before.includes('女人說') ||
-      before.includes('亞當說') ||
-      before.includes('法老') ||
-      before.includes('巴蘭') ||
-      before.includes('摩西對') ||
-      before.includes('百姓') ||
-      before.includes('眾人') ||
-      before.includes('文士') ||
-      before.includes('法利賽人') ||
-      before.includes('祭司長') ||
-      before.includes('婦人') ||
-      before.includes('百夫長') ||
-      before.includes('彼拉多');
-
-    // God/Jesus speaker triggers in OT and NT
-    const hasGodOrJesusTrigger =
-      before.includes('神說') ||
-      before.includes('神對') ||
-      before.includes('神又對') ||
-      before.includes('神向') ||
-      before.includes('神吩咐') ||
-      before.includes('神呼叫') ||
-      before.includes('神命令') ||
-      before.includes('神起誓') ||
-      before.includes('耶和華說') ||
-      before.includes('耶和華對') ||
-      before.includes('耶和華曉諭') ||
-      before.includes('耶和華吩咐') ||
-      before.includes('耶和華向') ||
-      before.includes('耶和華降臨') ||
-      before.includes('耶和華如此說') ||
-      before.includes('萬軍之耶和華') ||
-      before.includes('主耶和華') ||
-      before.includes('主說') ||
-      before.includes('主對') ||
-      before.includes('主又說') ||
-      before.includes('耶穌') ||
-      before.includes('基督') ||
-      before.includes('我實實在在') ||
-      before.includes('人子');
-
-    const continuationTrigger =
-      before.includes('又說') ||
-      before.includes('說：') ||
-      before.includes('回答說') ||
-      before.trim() === '' ||
-      before.trim() === '，' ||
-      before.trim() === '；' ||
-      before.trim() === '：';
-
-    let isGodOrJesus = false;
-
-    if (hasGodOrJesusTrigger && !isOtherSpeaker) {
-      isGodOrJesus = true;
-      previousSpeakerWasGodOrJesus = true;
-    } else if (continuationTrigger && previousSpeakerWasGodOrJesus && !isOtherSpeaker) {
-      isGodOrJesus = true;
-    } else if (!isOtherSpeaker && (isGospel || (bookId === 'REV' && [1, 2, 3, 21, 22].includes(chapter || 1)))) {
-      isGodOrJesus = true;
-      previousSpeakerWasGodOrJesus = true;
-    } else if (isOT && !isOtherSpeaker && (quoteContent.startsWith('我是耶和華') || quoteContent.startsWith('我耶和華') || quoteContent.startsWith('我必') || quoteContent.startsWith('我若') || quoteContent.includes('耶和華如此說') || quoteContent.includes('萬軍之耶和華說'))) {
-      isGodOrJesus = true;
-      previousSpeakerWasGodOrJesus = true;
-    } else {
-      previousSpeakerWasGodOrJesus = false;
-    }
-
-    segments.push({
-      text: '「' + quoteContent + '」',
-      isRed: isGodOrJesus,
-    });
-
-    lastIdx = match.index + match[0].length;
   }
 
-  if (lastIdx < rawText.length) {
-    segments.push({ text: rawText.slice(lastIdx), isRed: false });
+  const segments: VerseSegment[] = [];
+  let inQuote = false;
+  let isCurrentQuoteGod = false;
+  let lastKnownSpeakerIsGod = false;
+  let buffer = '';
+
+  for (let i = 0; i < rawText.length; i++) {
+    const char = rawText[i];
+
+    if (char === '「' || char === '『') {
+      if (buffer) {
+        segments.push({ text: buffer, isRed: inQuote && isCurrentQuoteGod });
+      }
+      const preceding = buffer || (segments.length > 0 ? segments[segments.length - 1].text : '');
+      const isGod = isGodOrJesusSpeaking(preceding, lastKnownSpeakerIsGod, rawText.slice(i), bookId, chapter, verseNum);
+
+      inQuote = true;
+      isCurrentQuoteGod = isGod;
+      if (isGod) lastKnownSpeakerIsGod = true;
+      buffer = char;
+    } else if (char === '」' || char === '』') {
+      buffer += char;
+      segments.push({ text: buffer, isRed: inQuote && isCurrentQuoteGod });
+      buffer = '';
+      inQuote = false;
+      isCurrentQuoteGod = false;
+    } else {
+      buffer += char;
+    }
+  }
+
+  if (buffer) {
+    segments.push({ text: buffer, isRed: inQuote && isCurrentQuoteGod });
   }
 
   return segments.length > 0 ? segments : [{ text: rawText, isRed: false }];
+}
+
+/**
+ * Enriches all verses in a whole chapter with consecutive speaker continuation
+ * for quotes spanning multiple verses in the Old and New Testaments.
+ */
+export function enrichChapterVersesWithRedLetters(
+  verses: Verse[],
+  bookId: string,
+  chapter: number
+): Verse[] {
+  let isGodSpeakingContinuation = false;
+
+  return verses.map((v) => {
+    // If verse already has valid red segments from HTML parse with isRed: true, retain them but update continuation state
+    if (v.segments && v.segments.length > 0 && v.segments.some((s) => s.isRed)) {
+      const lastSeg = v.segments[v.segments.length - 1];
+      if (lastSeg.isRed && (lastSeg.text.includes('「') || lastSeg.text.includes('『')) && !lastSeg.text.includes('」') && !lastSeg.text.includes('』')) {
+        isGodSpeakingContinuation = true;
+      } else if (lastSeg.text.includes('」') || lastSeg.text.includes('』')) {
+        isGodSpeakingContinuation = false;
+      }
+      return v;
+    }
+
+    // Ten Commandments (Exodus 20:2-17, Deuteronomy 5:6-21)
+    if (
+      (bookId === 'EXO' && chapter === 20 && v.verse >= 2 && v.verse <= 17) ||
+      (bookId === 'DEU' && chapter === 5 && v.verse >= 6 && v.verse <= 21)
+    ) {
+      isGodSpeakingContinuation = v.verse < 17;
+      return {
+        ...v,
+        segments: [{ text: v.text, isRed: true }],
+      };
+    }
+
+    // Reset continuation after Ten Commandments or clear narrative transitions
+    if (bookId === 'EXO' && chapter === 20 && v.verse === 18) {
+      isGodSpeakingContinuation = false;
+    }
+    if (bookId === 'DEU' && chapter === 5 && v.verse === 22) {
+      isGodSpeakingContinuation = false;
+    }
+
+    const text = v.text || '';
+    const segments: VerseSegment[] = [];
+
+    let inQuote = isGodSpeakingContinuation;
+    let quoteSpeakerIsGod = isGodSpeakingContinuation;
+    let buffer = '';
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+
+      if (char === '「' || char === '『') {
+        if (buffer) {
+          segments.push({ text: buffer, isRed: inQuote && quoteSpeakerIsGod });
+        }
+
+        const preceding = buffer || (segments.length > 0 ? segments[segments.length - 1].text : '');
+        const isGod = isGodOrJesusSpeaking(preceding, isGodSpeakingContinuation, text.slice(i), bookId, chapter, v.verse);
+
+        inQuote = true;
+        quoteSpeakerIsGod = isGod;
+        isGodSpeakingContinuation = isGod;
+        buffer = char;
+      } else if (char === '」' || char === '』') {
+        buffer += char;
+        segments.push({ text: buffer, isRed: inQuote && quoteSpeakerIsGod });
+        buffer = '';
+        inQuote = false;
+        quoteSpeakerIsGod = false;
+        isGodSpeakingContinuation = false;
+      } else {
+        buffer += char;
+      }
+    }
+
+    if (buffer) {
+      segments.push({ text: buffer, isRed: inQuote && quoteSpeakerIsGod });
+      if (inQuote && quoteSpeakerIsGod) {
+        isGodSpeakingContinuation = true;
+      }
+    }
+
+    return {
+      ...v,
+      segments: segments.length > 0 ? segments : [{ text, isRed: false }],
+    };
+  });
 }
 
 /**
@@ -452,6 +567,10 @@ export async function fetchChapterVerses(
 
   // 6. If fetched successfully, cache and return
   if (verses && verses.length > 0) {
+    if (version === 'CUV') {
+      verses = enrichChapterVersesWithRedLetters(verses, bookId, chapter);
+    }
+
     verseCache.set(cacheKey, verses);
     try {
       localStorage.setItem(`${CACHE_VERSION}${cacheKey}`, JSON.stringify(verses));
