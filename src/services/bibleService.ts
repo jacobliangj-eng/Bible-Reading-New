@@ -38,7 +38,7 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 const verseCache = new Map<string, Verse[]>();
 
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v12_';
+const CACHE_VERSION = 'bible_v13_';
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
@@ -136,7 +136,7 @@ export function isGodOrJesusSpeaking(
   ].includes(bookId);
 
   // Books with strictly human narrative dialogues and no direct divine quotes
-  if (['RUT', 'EST', 'ECC', 'SNG'].includes(bookId)) {
+  if (['RUT', 'EZR', 'NEH', 'EST', 'ECC', 'SNG'].includes(bookId)) {
     return false;
   }
 
