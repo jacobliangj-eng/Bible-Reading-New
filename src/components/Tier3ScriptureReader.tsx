@@ -1032,7 +1032,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-3 md:py-4 space-y-3">
+    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 py-2 md:py-3 space-y-2 sm:space-y-2.5">
       {/* Hidden Audio Element for FHL MP3 Playback */}
       <audio
         ref={audioRef}
@@ -1078,7 +1078,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       />
 
       {/* TIER 3 (1) 朗讀模式選擇器 */}
-      <div className="gold-card p-2.5 rounded-xl space-y-1.5">
+      <div className="gold-card p-2 sm:p-2.5 rounded-lg sm:rounded-xl space-y-1.5">
         <div className="flex items-center justify-between pb-1 border-b border-yellow-800/40">
           <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs md:text-sm">
             <ListOrdered className="w-3.5 h-3.5 text-amber-400" />
@@ -1087,7 +1087,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         </div>
 
         {/* 範圍/章/節 控制區 */}
-        <div className="bg-black/60 p-2 rounded-lg space-y-1.5">
+        <div className="bg-black/60 p-1.5 sm:p-2 rounded-lg space-y-1.5">
           {/* 章 / 篇 */}
           <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
             <span className="font-bold text-amber-200 shrink-0 w-8">{chapterUnit}：</span>
@@ -1179,7 +1179,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       </div>
 
       {/* Main Reading Playbar */}
-      <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-2">
+      <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-1.5 sm:space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           {/* Left Playback Control Buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -1271,7 +1271,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
       {/* Scripture Verses Display List with Swipe Gesture Support */}
       <div
-        className="bg-white text-zinc-900 border-2 border-amber-300/80 shadow-2xl p-3.5 md:p-5 rounded-2xl min-h-[350px] space-y-3 touch-pan-y"
+        className="bg-white text-zinc-900 border-2 border-amber-300/80 shadow-2xl px-1.5 py-2.5 sm:px-2.5 sm:py-3 md:px-3.5 md:py-4 rounded-xl sm:rounded-2xl min-h-[350px] space-y-2 sm:space-y-2.5 touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -1399,13 +1399,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                       verseRefs.current[idx] = el;
                     }}
                     onClick={() => handleVerseClick(v, idx)}
-                    className={`py-1 px-2 md:py-0.5 md:px-1 rounded-md cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
+                    className={`py-1 px-1 sm:px-1.5 md:py-0.5 rounded cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
                       isActive
                         ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
                         : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
                     }`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-1.5 sm:gap-2">
                       {/* Chapter & Verse Badge */}
                       <span
                         className={`inline-block px-1.5 py-0 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
