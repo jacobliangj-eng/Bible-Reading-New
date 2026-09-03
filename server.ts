@@ -19,9 +19,6 @@ async function startServer() {
     next();
   });
 
-  // In-memory cache for bibletool results to serve mobile devices instantly
-  const bibleToolCache = new Map<string, any>();
-
   // Proxy endpoint for bibletool.konline.org to bypass CORS
   app.get(['/api/bibletool', '/api/bibletool/:fragment', '/api/bibletool/:version/:bookNumber/:chapter'], async (req, res) => {
     try {
@@ -33,13 +30,6 @@ async function startServer() {
       if (!fragment) {
         return res.status(400).json({ error: 'Missing fragment parameter' });
       }
-
-      // Check in-memory cache
-      if (bibleToolCache.has(fragment)) {
-        res.setHeader('Cache-Control', 'public, max-age=86400');
-        return res.json(bibleToolCache.get(fragment));
-      }
-
       const targetUrl = `https://bibletool.konline.org/retrieve/${fragment}`;
       
       let response: Response | null = null;
@@ -66,14 +56,7 @@ async function startServer() {
       if (!response || !response.ok) {
         return res.status(response?.status || 502).json({ error: `BibleTool returned status ${response?.status}` });
       }
-      const rawText = await response.text();
-      // Ensure all occurrences of 上帝 are normalized to 神 in CUV
-      const normalizedText = rawText.replace(/上帝/g, '神');
-      const data = JSON.parse(normalizedText);
-
-      // Cache normalized data in memory
-      bibleToolCache.set(fragment, data);
-
+      const data = await response.json();
       res.setHeader('Cache-Control', 'public, max-age=86400');
       res.json(data);
     } catch (err: any) {

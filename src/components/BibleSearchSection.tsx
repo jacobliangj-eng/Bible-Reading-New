@@ -134,13 +134,22 @@ export const BibleSearchSection: React.FC<BibleSearchSectionProps> = ({
   // Helper to highlight matching keywords in verse text
   const renderHighlightedText = (text: string, keyword: string) => {
     if (!keyword.trim()) return text;
-    const cleanKw = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const parts = text.split(new RegExp(`(${cleanKw})`, 'gi'));
+    let pattern = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (keyword.trim() === '上帝') {
+      pattern = '(?:上帝|　神|[ \t]*神)';
+    } else if (keyword.trim() === '神') {
+      pattern = '(?:　神|[ \t]*神|上帝)';
+    }
+    const parts = text.split(new RegExp(`(${pattern})`, 'gi'));
 
     return (
       <>
-        {parts.map((part, i) =>
-          part.toLowerCase() === keyword.toLowerCase() ? (
+        {parts.map((part, i) => {
+          const isMatch =
+            part.toLowerCase() === keyword.toLowerCase() ||
+            (keyword.trim() === '上帝' && (part.includes('神') || part.includes('上帝'))) ||
+            (keyword.trim() === '神' && (part.includes('神') || part.includes('上帝')));
+          return isMatch ? (
             <mark
               key={i}
               className="bg-amber-400 text-black font-bold px-1 py-0.2 rounded mx-0.5 shadow-xs"
@@ -149,8 +158,8 @@ export const BibleSearchSection: React.FC<BibleSearchSectionProps> = ({
             </mark>
           ) : (
             <span key={i}>{part}</span>
-          )
-        )}
+          );
+        })}
       </>
     );
   };

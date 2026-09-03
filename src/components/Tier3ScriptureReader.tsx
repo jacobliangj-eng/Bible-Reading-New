@@ -17,7 +17,7 @@ import {
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
-import { fetchChapterVerses, getFhlChapterAudioUrls, normalizeGodText } from '../services/bibleService';
+import { fetchChapterVerses, getFhlChapterAudioUrls, normalizeGodTerms } from '../services/bibleService';
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
@@ -725,7 +725,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       }
 
       if (selectedVersion === 'CUV' || versionInfo?.langCode?.startsWith('zh')) {
-        speechText = fixChineseTTSPronunciation(normalizeGodText(speechText));
+        speechText = fixChineseTTSPronunciation(speechText);
       }
 
       const utterance = new SpeechSynthesisUtterance(speechText);
@@ -982,8 +982,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // Copy verse handler
   const handleCopyVerseText = async () => {
     if (!selectedCopyVerse) return;
-    const cleanVerseText = normalizeGodText(selectedCopyVerse.text);
-    const formattedText = `【${bookName} ${selectedCopyVerse.chapter}:${selectedCopyVerse.verse}】${cleanVerseText}`;
+    const formattedText = `【${bookName} ${selectedCopyVerse.chapter}:${selectedCopyVerse.verse}】${normalizeGodTerms(selectedCopyVerse.text)}`;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(formattedText);
@@ -1376,12 +1375,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           <div className="space-y-0">
             {activeVerses.map((v, idx) => {
               const isActive = isPlaying && currentVerseIndex === idx;
-              const rawSub =
+              const sectionSubtitle =
                 v.subtitle ||
                 (selectedVersion === 'CUV'
                   ? getCuratedSubtitle(selectedBook.id, v.chapter, v.verse)
                   : undefined);
-              const sectionSubtitle = rawSub ? normalizeGodText(rawSub) : undefined;
 
               return (
                 <React.Fragment key={`${v.chapter}_${v.verse}_${idx}`}>
@@ -1390,7 +1388,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     <div className="pt-4 pb-1.5 px-1 mt-2 mb-1 flex items-center gap-2 select-none">
                       <span className="w-1.5 h-3.5 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs"></span>
                       <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5">
-                        {sectionSubtitle}
+                        {normalizeGodTerms(sectionSubtitle)}
                       </h4>
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-400/80 via-amber-200/50 to-transparent"></div>
                     </div>
@@ -1435,17 +1433,17 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                 : [{ text: v.text, isRed: false }];
 
                             return displaySegments.map((seg, sIdx) => {
-                              const text = normalizeGodText(seg.text);
+                              const segText = normalizeGodTerms(seg.text);
                               return seg.isRed ? (
                                 <span
                                   key={sIdx}
                                   className="verse-red-letter text-red-600 font-medium"
                                   style={{ color: '#dc2626' }}
                                 >
-                                  {text}
+                                  {segText}
                                 </span>
                               ) : (
-                                <span key={sIdx}>{text}</span>
+                                <span key={sIdx}>{segText}</span>
                               );
                             });
                           })()}
@@ -1491,17 +1489,17 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                       : [{ text: selectedCopyVerse.text, isRed: false }];
 
                   return copySegments.map((seg, sIdx) => {
-                    const text = normalizeGodText(seg.text);
+                    const segText = normalizeGodTerms(seg.text);
                     return seg.isRed ? (
                       <span
                         key={sIdx}
                         className="verse-red-letter text-red-600 font-medium"
                         style={{ color: '#dc2626' }}
                       >
-                        {text}
+                        {segText}
                       </span>
                     ) : (
-                      <span key={sIdx}>{text}</span>
+                      <span key={sIdx}>{segText}</span>
                     );
                   });
                 })()}

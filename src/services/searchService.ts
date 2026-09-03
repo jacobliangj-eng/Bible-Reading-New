@@ -1,6 +1,7 @@
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { DAILY_VERSES } from '../data/dailyVerses';
 import { BibleBook, BibleSearchResult, BibleVersion } from '../types';
+import { normalizeGodTerms } from './bibleService';
 
 // Map of FHL Chinese abbreviations to book IDs
 const FHL_NAME_TO_BOOK_ID: Record<string, string> = {
@@ -123,7 +124,8 @@ export async function searchScriptureByKeyword(
   // 1. Try Online Search with FHL API
   try {
     const fhlVersion = version === 'KJV' ? 'kjv' : 'unv';
-    const url = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(query)}&VERSION=${fhlVersion}&orig=0`;
+    const fhlQuery = query === '上帝' ? '神' : query;
+    const url = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(fhlQuery)}&VERSION=${fhlVersion}&orig=0`;
 
     const res = await fetch(url);
     if (res.ok) {
@@ -132,7 +134,9 @@ export async function searchScriptureByKeyword(
         for (const item of json.record) {
           const chap = Number(item.chap);
           const sec = Number(item.sec);
-          const rawText = item.bible_text ? item.bible_text.replace(/[\u3000\s]+/g, ' ').trim() : '';
+          const rawText = item.bible_text
+            ? (version === 'CUV' ? normalizeGodTerms(item.bible_text.trim()) : item.bible_text.replace(/[\u3000\s]+/g, ' ').trim())
+            : '';
 
           if (!rawText) continue;
 
@@ -183,10 +187,17 @@ export async function searchScriptureByKeyword(
 
   // 2. Also search through local Daily Verses & Cache to ensure offline and quick hits
   const lowerQuery = query.toLowerCase();
+  const searchTerms = [lowerQuery];
+  if (lowerQuery === '上帝') {
+    searchTerms.push('　神', '神');
+  }
+
   for (const daily of DAILY_VERSES) {
-    const text = daily.text[version] || daily.text.CUV;
+    const rawDailyText = daily.text[version] || daily.text.CUV;
+    const text = version === 'CUV' ? normalizeGodTerms(rawDailyText) : rawDailyText;
     const ref = daily.reference[version] || daily.reference.CUV;
-    if (text.toLowerCase().includes(lowerQuery) || ref.toLowerCase().includes(lowerQuery)) {
+    const isHit = searchTerms.some((st) => text.toLowerCase().includes(st) || ref.toLowerCase().includes(st));
+    if (isHit) {
       const parsedRef = parseScriptureReference(ref, version);
       if (parsedRef) {
         const resultKey = `${parsedRef.book.id}_${parsedRef.chapter}_${parsedRef.verse || 1}`;
