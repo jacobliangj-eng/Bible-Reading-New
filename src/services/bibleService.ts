@@ -202,8 +202,12 @@ export function isGodOrJesusSpeaking(
     if (isGodSubj && !isGodObj) return true;
     if (isGodObj && !isGodSubj) return false;
 
-    // Continuation phrases (又對女人說, 又對門徒說, 便對他說)
-    if (rawSubj === '' || /^(?:又|便|就|神又|耶和華又|耶穌又)/.test(rawSubj) || /^(?:又對|便對|就對)/.test(lastSentence)) {
+    // Continuation phrases (對他說, 又對女人說, 又對門徒說, 便對他說)
+    if (
+      rawSubj === '' ||
+      /^(?:又|便|就|神又|耶和華又|耶穌又)/.test(rawSubj) ||
+      /^(?:對|又對|便對|就對|向|又向)/.test(lastSentence)
+    ) {
       if (previousSpeakerWasGod) return true;
     }
 
@@ -317,16 +321,19 @@ export function enrichChapterVersesWithRedLetters(
   bookId: string,
   chapter: number
 ): Verse[] {
-  let isGodSpeakingContinuation = false;
+  let hasUnclosedGodQuote = false;
+  let lastSpeakerWasGod = false;
 
   return verses.map((v) => {
     // If verse already has valid red segments from HTML parse with isRed: true, retain them but update continuation state
     if (v.segments && v.segments.length > 0 && v.segments.some((s) => s.isRed)) {
       const lastSeg = v.segments[v.segments.length - 1];
       if (lastSeg.isRed && (lastSeg.text.includes('「') || lastSeg.text.includes('『')) && !lastSeg.text.includes('」') && !lastSeg.text.includes('』')) {
-        isGodSpeakingContinuation = true;
+        hasUnclosedGodQuote = true;
+        lastSpeakerWasGod = true;
       } else if (lastSeg.text.includes('」') || lastSeg.text.includes('』')) {
-        isGodSpeakingContinuation = false;
+        hasUnclosedGodQuote = false;
+        lastSpeakerWasGod = true;
       }
       return v;
     }
@@ -336,7 +343,8 @@ export function enrichChapterVersesWithRedLetters(
       (bookId === 'EXO' && chapter === 20 && v.verse >= 2 && v.verse <= 17) ||
       (bookId === 'DEU' && chapter === 5 && v.verse >= 6 && v.verse <= 21)
     ) {
-      isGodSpeakingContinuation = v.verse < 17;
+      hasUnclosedGodQuote = v.verse < 17;
+      lastSpeakerWasGod = true;
       return {
         ...v,
         segments: [{ text: v.text, isRed: true }],
@@ -345,17 +353,19 @@ export function enrichChapterVersesWithRedLetters(
 
     // Reset continuation after Ten Commandments or clear narrative transitions
     if (bookId === 'EXO' && chapter === 20 && v.verse === 18) {
-      isGodSpeakingContinuation = false;
+      hasUnclosedGodQuote = false;
+      lastSpeakerWasGod = false;
     }
     if (bookId === 'DEU' && chapter === 5 && v.verse === 22) {
-      isGodSpeakingContinuation = false;
+      hasUnclosedGodQuote = false;
+      lastSpeakerWasGod = false;
     }
 
     const text = v.text || '';
     const segments: VerseSegment[] = [];
 
-    let inQuote = isGodSpeakingContinuation;
-    let quoteSpeakerIsGod = isGodSpeakingContinuation;
+    let inQuote = hasUnclosedGodQuote;
+    let quoteSpeakerIsGod = hasUnclosedGodQuote;
     let buffer = '';
 
     for (let i = 0; i < text.length; i++) {
@@ -367,11 +377,11 @@ export function enrichChapterVersesWithRedLetters(
         }
 
         const preceding = buffer || (segments.length > 0 ? segments[segments.length - 1].text : '');
-        const isGod = isGodOrJesusSpeaking(preceding, isGodSpeakingContinuation, text.slice(i), bookId, chapter, v.verse);
+        const isGod = isGodOrJesusSpeaking(preceding, lastSpeakerWasGod, text.slice(i), bookId, chapter, v.verse);
 
         inQuote = true;
         quoteSpeakerIsGod = isGod;
-        isGodSpeakingContinuation = isGod;
+        lastSpeakerWasGod = isGod;
         buffer = char;
       } else if (char === '」' || char === '』') {
         buffer += char;
@@ -379,7 +389,7 @@ export function enrichChapterVersesWithRedLetters(
         buffer = '';
         inQuote = false;
         quoteSpeakerIsGod = false;
-        isGodSpeakingContinuation = false;
+        hasUnclosedGodQuote = false;
       } else {
         buffer += char;
       }
@@ -388,22 +398,23 @@ export function enrichChapterVersesWithRedLetters(
     if (buffer) {
       segments.push({ text: buffer, isRed: inQuote && quoteSpeakerIsGod });
       if (inQuote && quoteSpeakerIsGod) {
-        isGodSpeakingContinuation = true;
+        hasUnclosedGodQuote = true;
+        lastSpeakerWasGod = true;
       }
     }
 
     if (!inQuote) {
       const lastSent = text.split(/[。]/).pop() || text;
-      if (/(?:神|耶和華|基督|耶穌)[^。]*?(?:說|吩咐|曉諭|責備|斥責|回答)[：:]?$/.test(lastSent)) {
+      if (/(?:神|耶和華|基督|耶穌)[^。]*?(?:說|吩咐|曉諭|責備|斥責|回答|囑咐|交代|打發)[^。]*?[：:，,]?$/.test(lastSent)) {
         if (!/(?:對|向|求)(?:神|耶和華|主|基督|耶穌)/.test(lastSent)) {
-          isGodSpeakingContinuation = true;
+          lastSpeakerWasGod = true;
         }
       } else if (
-        /(?:鬼|污鬼|魔鬼|撒但|邪靈|百姓|官長|約書亞|摩西|亞倫|眾人|門徒|彼得|人|那人|婦人|他|他們|她)[^。]*?(?:說|吩咐|喊叫|問|求|答)[：:]?$/.test(
+        /(?:鬼|污鬼|魔鬼|撒但|邪靈|百姓|官長|約書亞|摩西|亞倫|眾人|門徒|彼得|人|那人|婦人)[^。]*?(?:說|吩咐|喊叫|問|求|答)[：:，,]?$/.test(
           lastSent
         )
       ) {
-        isGodSpeakingContinuation = false;
+        lastSpeakerWasGod = false;
       }
     }
 

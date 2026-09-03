@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/bibletool/:fragment*",
+      "destination": "https://bibletool.konline.org/retrieve/:fragment*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
