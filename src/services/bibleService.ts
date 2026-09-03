@@ -9,7 +9,7 @@ const HELLOAO_TRANSLATIONS: Record<BibleVersion, string> = {
 };
 
 // Book 1-66 numbers mapping for bibletool.konline.org & FHL
-const BOOK_ID_TO_NUMBER: Record<string, number> = {
+export const BOOK_ID_TO_NUMBER: Record<string, number> = {
   GEN: 1, EXO: 2, LEV: 3, NUM: 4, DEU: 5, JOS: 6, JDG: 7, RUT: 8,
   '1SA': 9, '2SA': 10, '1KI': 11, '2KI': 12, '1CH': 13, '2CH': 14,
   EZR: 15, NEH: 16, EST: 17, JOB: 18, PSA: 19, PRO: 20, ECC: 21, SNG: 22,
@@ -20,6 +20,19 @@ const BOOK_ID_TO_NUMBER: Record<string, number> = {
   '1TI': 54, '2TI': 55, TIT: 56, PHM: 57, HEB: 58, JAS: 59, '1PE': 60,
   '2PE': 61, '1JN': 62, '2JN': 63, '3JN': 64, JUD: 65, REV: 66,
 };
+
+/**
+ * Returns the exact browse URL on bibletool.konline.org for any book and chapter.
+ * E.g. GEN:1 -> https://bibletool.konline.org/browse/#UCV:1:1
+ * REV:1 -> https://bibletool.konline.org/browse/#UCV:66:1
+ */
+export function getBibleToolBrowseUrl(bookId: string, chapter: number): string {
+  const bookNumber = BOOK_ID_TO_NUMBER[bookId] || 1;
+  return `https://bibletool.konline.org/browse/#UCV:${bookNumber}:${chapter}`;
+}
+
+// In-flight request deduplication map to prevent redundant concurrent fetches
+const inFlightRequests = new Map<string, Promise<Verse[]>>();
 
 // Book short names for FHL (Chinese Bible API fallback)
 const FHL_BOOK_NAMES: Record<string, string> = {
@@ -427,25 +440,32 @@ function formatSubtitle(raw: string | undefined): string | undefined {
 /**
  * Fetch Chinese Union Version with Red Letters from bibletool.konline.org
  * (耶大雅聖經工具 - 國語和合本紅字版)
- * Tries local server proxy first, then direct URL.
+ * Tries local server proxy first, then direct URL, bypassing local disk caches.
  */
-async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Verse[] | null> {
+export async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Verse[] | null> {
   const bookNumber = BOOK_ID_TO_NUMBER[bookId];
   if (!bookNumber) return null;
 
   const fragment = `UCV:${bookNumber}:${chapter}`;
+  const timestamp = Date.now();
   const directUrl = `https://bibletool.konline.org/retrieve/${fragment}`;
 
   const endpoints = [
-    `/api/bibletool/${fragment}`, // Local Express proxy (no CORS issues)
-    `/api/bibletool?q=${encodeURIComponent(fragment)}`,
-    `/api/bibletool/UCV/${bookNumber}/${chapter}`,
+    `/api/bibletool/${fragment}?_t=${timestamp}`, // Local Express proxy with no-cache (bypasses CORS)
+    `/api/bibletool?q=${encodeURIComponent(fragment)}&_t=${timestamp}`,
+    `/api/bibletool/UCV/${bookNumber}/${chapter}?_t=${timestamp}`,
     directUrl,
   ];
 
   for (const endpoint of endpoints) {
     try {
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
       if (!res.ok) continue;
 
       const data = await res.json();
@@ -579,8 +599,8 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
 
 /**
  * Main API function to fetch genuine Bible verses for any book, chapter, and translation version.
- * For CUV (國語和合本), it fetches directly from bibletool.konline.org to provide authentic
- * red-letter tagging for God and Jesus' words with instant local caching.
+ * For CUV (國語和合本), it ALWAYS immediately downloads live from bibletool.konline.org
+ * to provide authentic red-letter tagging for God and Jesus' words.
  */
 export async function fetchChapterVerses(
   bookId: string,
@@ -590,90 +610,125 @@ export async function fetchChapterVerses(
 ): Promise<Verse[]> {
   const cacheKey = `${version}_${bookId}_${chapter}`;
 
-  // 1. Check in-memory cache
-  if (verseCache.has(cacheKey)) {
-    return verseCache.get(cacheKey)!;
+  // If a fetch for this exact chapter is already in progress, reuse it
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey)!;
   }
 
-  // 2. Check localStorage cache with version prefix
-  try {
-    const stored = localStorage.getItem(`${CACHE_VERSION}${cacheKey}`);
-    if (stored) {
-      const parsed: Verse[] = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const normalized =
-          version === 'CUV'
-            ? parsed.map((v) => ({
-                ...v,
-                text: normalizeGodTerms(v.text),
-                rawContent: v.rawContent ? normalizeGodTerms(v.rawContent) : undefined,
-                subtitle: v.subtitle ? normalizeGodTerms(v.subtitle) : undefined,
-                segments: (v.segments || []).map((s) => ({
-                  ...s,
-                  text: normalizeGodTerms(s.text),
-                })),
-              }))
-            : parsed;
-        verseCache.set(cacheKey, normalized);
-        return normalized;
+  const fetchPromise = (async () => {
+    let verses: Verse[] | null = null;
+    let isFromBibleTool = false;
+
+    // 1. For CUV (國語和合本), ALWAYS IMMEDIATELY download from 耶大雅聖經工具 (https://bibletool.konline.org/browse/#UCV)
+    if (version === 'CUV') {
+      try {
+        verses = await fetchFromBibleTool(bookId, chapter);
+        if (verses && verses.length > 0) {
+          isFromBibleTool = true;
+        }
+      } catch (btErr) {
+        console.warn(`[BibleService] Immediate download from BibleTool encountered error:`, btErr);
+      }
+    } else {
+      // For non-CUV (KJV/LSG), check memory and local cache
+      if (verseCache.has(cacheKey)) {
+        return verseCache.get(cacheKey)!;
+      }
+      try {
+        const stored = localStorage.getItem(`${CACHE_VERSION}${cacheKey}`);
+        if (stored) {
+          const parsed: Verse[] = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            verseCache.set(cacheKey, parsed);
+            return parsed;
+          }
+        }
+      } catch {
+        // Ignore localStorage errors
       }
     }
-  } catch {
-    // Ignore localStorage errors
-  }
 
-  let verses: Verse[] | null = null;
-  let isFromBibleTool = false;
+    // 2. Primary HelloAO API for KJV/LSG, or offline fallback for CUV if network unreachable
+    if (!verses) {
+      const transCode = HELLOAO_TRANSLATIONS[version] || 'cmn_cuv';
+      verses = await fetchFromHelloAO(transCode, bookId, chapter);
+    }
 
-  // 3. For CUV (國語和合本), primary source is bibletool.konline.org with authentic red-letter markup
-  if (version === 'CUV') {
-    verses = await fetchFromBibleTool(bookId, chapter);
+    // 3. Fallback for CUV to FHL if both failed
+    if (!verses && version === 'CUV') {
+      verses = await fetchFromFHL(bookId, chapter);
+    }
+
+    // 4. Offline backup: If live downloads failed (e.g. offline device), check local backup cache
+    if (!verses) {
+      if (verseCache.has(cacheKey)) {
+        return verseCache.get(cacheKey)!;
+      }
+      try {
+        const stored = localStorage.getItem(`${CACHE_VERSION}${cacheKey}`);
+        if (stored) {
+          const parsed: Verse[] = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const normalized =
+              version === 'CUV'
+                ? parsed.map((v) => ({
+                    ...v,
+                    text: normalizeGodTerms(v.text),
+                    rawContent: v.rawContent ? normalizeGodTerms(v.rawContent) : undefined,
+                    subtitle: v.subtitle ? normalizeGodTerms(v.subtitle) : undefined,
+                    segments: (v.segments || []).map((s) => ({
+                      ...s,
+                      text: normalizeGodTerms(s.text),
+                    })),
+                  }))
+                : parsed;
+            verseCache.set(cacheKey, normalized);
+            return normalized;
+          }
+        }
+      } catch {
+        // Ignore localStorage errors
+      }
+    }
+
+    // 5. If fetched successfully, cache in memory and return
     if (verses && verses.length > 0) {
-      isFromBibleTool = true;
-    }
-  }
+      if (version === 'CUV') {
+        verses = verses.map((v) => ({
+          ...v,
+          text: normalizeGodTerms(v.text),
+          rawContent: v.rawContent ? normalizeGodTerms(v.rawContent) : undefined,
+          subtitle: v.subtitle ? normalizeGodTerms(v.subtitle) : undefined,
+          segments: (v.segments || []).map((s) => ({
+            ...s,
+            text: normalizeGodTerms(s.text),
+          })),
+        }));
+      }
 
-  // 4. Primary HelloAO API for KJV/LSG, or fallback for CUV
-  if (!verses) {
-    const transCode = HELLOAO_TRANSLATIONS[version] || 'cmn_cuv';
-    verses = await fetchFromHelloAO(transCode, bookId, chapter);
-  }
+      if (version === 'CUV' && !isFromBibleTool) {
+        verses = enrichChapterVersesWithRedLetters(verses, bookId, chapter);
+      }
 
-  // 5. Fallback for CUV to FHL if both failed
-  if (!verses && version === 'CUV') {
-    verses = await fetchFromFHL(bookId, chapter);
-  }
-
-  // 6. If fetched successfully, cache and return
-  if (verses && verses.length > 0) {
-    if (version === 'CUV') {
-      verses = verses.map((v) => ({
-        ...v,
-        text: normalizeGodTerms(v.text),
-        rawContent: v.rawContent ? normalizeGodTerms(v.rawContent) : undefined,
-        subtitle: v.subtitle ? normalizeGodTerms(v.subtitle) : undefined,
-        segments: (v.segments || []).map((s) => ({
-          ...s,
-          text: normalizeGodTerms(s.text),
-        })),
-      }));
+      verseCache.set(cacheKey, verses);
+      try {
+        localStorage.setItem(`${CACHE_VERSION}${cacheKey}`, JSON.stringify(verses));
+      } catch {
+        // Storage quota reached, ignore
+      }
+      return verses;
     }
 
-    if (version === 'CUV' && !isFromBibleTool) {
-      verses = enrichChapterVersesWithRedLetters(verses, bookId, chapter);
-    }
+    // 6. Last resort fallback if network is completely offline
+    return getOfflineFallbackVerses(bookName, chapter, version);
+  })();
 
-    verseCache.set(cacheKey, verses);
-    try {
-      localStorage.setItem(`${CACHE_VERSION}${cacheKey}`, JSON.stringify(verses));
-    } catch {
-      // Storage quota reached, ignore
-    }
-    return verses;
+  inFlightRequests.set(cacheKey, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    inFlightRequests.delete(cacheKey);
   }
-
-  // 7. Last resort fallback if network is completely offline
-  return getOfflineFallbackVerses(bookName, chapter, version);
 }
 
 function getOfflineFallbackVerses(

@@ -27,10 +27,24 @@ async function startServer() {
         const ver = req.params.version || 'UCV';
         fragment = `${ver}:${req.params.bookNumber}:${req.params.chapter}`;
       }
+      if (!fragment && req.query.book && req.query.chapter) {
+        const ver = (req.query.version as string) || 'UCV';
+        fragment = `${ver}:${req.query.book}:${req.query.chapter}`;
+      }
       if (!fragment) {
         return res.status(400).json({ error: 'Missing fragment parameter' });
       }
+
+      // Standardize fragment format (e.g., UCV:1:1)
+      if (!fragment.includes(':')) {
+        fragment = `UCV:${fragment}:1`;
+      } else if (fragment.split(':').length === 2) {
+        // e.g. 1:1 -> UCV:1:1
+        fragment = `UCV:${fragment}`;
+      }
+
       const targetUrl = `https://bibletool.konline.org/retrieve/${fragment}`;
+      console.log(`[BibleTool Proxy] Immediately downloading from: ${targetUrl}`);
       
       let response: Response | null = null;
       // Retry up to 2 attempts with timeout
@@ -44,6 +58,8 @@ async function startServer() {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
               'Accept': 'application/json, text/plain, */*',
               'Referer': 'https://bibletool.konline.org/',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
             },
           });
           clearTimeout(timeoutId);
@@ -57,7 +73,12 @@ async function startServer() {
         return res.status(response?.status || 502).json({ error: `BibleTool returned status ${response?.status}` });
       }
       const data = await response.json();
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('X-BibleTool-Source', targetUrl);
+      res.setHeader('X-BibleTool-Browse-Url', `https://bibletool.konline.org/browse/#${fragment}`);
+      res.setHeader('X-BibleTool-Downloaded-At', new Date().toISOString());
       res.json(data);
     } catch (err: any) {
       console.error('[BibleTool Proxy Error]:', err);

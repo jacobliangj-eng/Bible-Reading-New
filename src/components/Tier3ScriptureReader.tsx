@@ -13,11 +13,17 @@ import {
   X,
   Bookmark,
   Loader2,
+  ExternalLink,
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
-import { fetchChapterVerses, getFhlChapterAudioUrls, normalizeGodTerms } from '../services/bibleService';
+import {
+  fetchChapterVerses,
+  getFhlChapterAudioUrls,
+  normalizeGodTerms,
+  getBibleToolBrowseUrl,
+} from '../services/bibleService';
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
@@ -1363,8 +1369,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         {isLoadingVerses ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
             <div className="w-8 h-8 border-3 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
-            <p className="text-amber-800 font-serif text-xs font-medium tracking-wide animate-pulse">
-              正在載入『{bookName}』正統聖經經文...
+            <p className="text-amber-800 font-serif text-xs font-medium tracking-wide animate-pulse text-center">
+              {selectedVersion === 'CUV'
+                ? `正在從「耶大雅聖經工具」立即下載『${bookName}』第 ${viewChapter} 章經文...`
+                : `正在載入『${bookName}』正統聖經經文...`}
             </p>
           </div>
         ) : activeVerses.length === 0 ? (
@@ -1373,6 +1381,29 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           </div>
         ) : (
           <div className="space-y-0">
+            {/* 耶大雅聖經工具 即時下載來源標註與連結 */}
+            {selectedVersion === 'CUV' && (
+              <div className="flex items-center justify-between text-[11px] text-amber-900/90 px-2 py-1 bg-amber-50/80 rounded border border-amber-200/70 mb-2 shadow-2xs select-none">
+                <div className="flex items-center gap-1.5 truncate">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
+                  <span className="font-sans font-medium text-amber-900">經文下載：耶大雅聖經工具（和合本紅字版）</span>
+                  <span className="font-mono text-amber-950 font-bold px-1 py-0.2 bg-amber-200/70 rounded border border-amber-300/80 text-[10px]">
+                    UCV:{selectedBook.number}:{viewChapter}
+                  </span>
+                </div>
+                <a
+                  href={getBibleToolBrowseUrl(selectedBook.id, viewChapter)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-amber-800 hover:text-amber-950 underline hover:no-underline font-medium shrink-0 ml-2 text-[11px] transition-colors"
+                  title={`於「耶大雅聖經工具」官網檢視 UCV:${selectedBook.number}:${viewChapter}`}
+                >
+                  <span>開啟原始網頁</span>
+                  <ExternalLink className="w-3 h-3 text-amber-800" />
+                </a>
+              </div>
+            )}
+
             {activeVerses.map((v, idx) => {
               const isActive = isPlaying && currentVerseIndex === idx;
               const sectionSubtitle =
