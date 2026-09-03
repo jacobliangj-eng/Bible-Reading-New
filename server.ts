@@ -20,16 +20,41 @@ async function startServer() {
   });
 
   // Proxy endpoint for bibletool.konline.org to bypass CORS
-  app.get(['/api/bibletool', '/api/bibletool/:fragment'], async (req, res) => {
+  app.get(['/api/bibletool', '/api/bibletool/:fragment', '/api/bibletool/:version/:bookNumber/:chapter'], async (req, res) => {
     try {
-      const fragment = (req.params.fragment || (req.query.q as string) || '').trim();
+      let fragment = (req.params.fragment || (req.query.q as string) || '').trim();
+      if (!fragment && req.params.bookNumber && req.params.chapter) {
+        const ver = req.params.version || 'UCV';
+        fragment = `${ver}:${req.params.bookNumber}:${req.params.chapter}`;
+      }
       if (!fragment) {
         return res.status(400).json({ error: 'Missing fragment parameter' });
       }
       const targetUrl = `https://bibletool.konline.org/retrieve/${fragment}`;
-      const response = await fetch(targetUrl);
-      if (!response.ok) {
-        return res.status(response.status).json({ error: `BibleTool returned status ${response.status}` });
+      
+      let response: Response | null = null;
+      // Retry up to 2 attempts with timeout
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          response = await fetch(targetUrl, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'application/json, text/plain, */*',
+              'Referer': 'https://bibletool.konline.org/',
+            },
+          });
+          clearTimeout(timeoutId);
+          if (response.ok) break;
+        } catch (fetchErr) {
+          if (attempt === 2) throw fetchErr;
+        }
+      }
+
+      if (!response || !response.ok) {
+        return res.status(response?.status || 502).json({ error: `BibleTool returned status ${response?.status}` });
       }
       const data = await response.json();
       res.setHeader('Cache-Control', 'public, max-age=86400');

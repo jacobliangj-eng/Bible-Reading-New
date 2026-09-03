@@ -103,9 +103,13 @@ export default function App() {
     }
   }, [isNightMode]);
 
-  // Scroll to top automatically whenever currentTier changes
+  // Ensure page scrolls to top on initial mount and whenever tier changes
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    }, 100);
+    return () => clearTimeout(timer);
   }, [currentTier]);
 
   // Nav Handlers
