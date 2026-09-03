@@ -31,7 +31,7 @@ export interface BibleBook {
 
 export interface VerseSegment {
   text: string;
-  isRed: boolean; // 是否為上帝或耶穌的話（紅字）
+  isRed: boolean; // 是否為神或耶穌的話（紅字）
 }
 
 export interface Verse {

@@ -205,7 +205,7 @@ body.night-mode ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
 
-/* Bible Red Letter (上帝與耶穌的話 紅字顯示) */
+/* Bible Red Letter (神與耶穌的話 紅字顯示) */
 .verse-red-letter {
   color: #dc2626 !important; /* Premium clear ruby red on white background */
   font-weight: normal;

@@ -37,8 +37,17 @@ const FHL_BOOK_NAMES: Record<string, string> = {
 // In-memory cache for instant subsequent loading
 const verseCache = new Map<string, Verse[]>();
 
-// Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
-const CACHE_VERSION = 'bible_v15_';
+// Cache key version prefix to invalidate any stale local storage on mobile/desktop
+const CACHE_VERSION = 'bible_v16_';
+
+/**
+ * Normalizes occurrences of "上帝" to "神", strictly following the traditional
+ * Chinese Union Version "神" edition (和合本神版) as in bibletool.konline.org.
+ */
+export function normalizeGodText(text: string): string {
+  if (!text) return text;
+  return text.replace(/上帝/g, '神');
+}
 
 // Auto-clean old legacy un-colored caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
@@ -79,12 +88,18 @@ function extractText(content: unknown): string {
  */
 export function parseSegmentsFromHtml(content: string): VerseSegment[] {
   if (!content) return [];
-  if (!content.includes('browse-verse-red') && !content.includes('color: red') && !content.includes('color:red') && !content.includes('<span')) {
-    return [{ text: content.replace(/<[^>]+>/g, '').trim(), isRed: false }];
+  const normalizedContent = normalizeGodText(content);
+  if (
+    !normalizedContent.includes('browse-verse-red') &&
+    !normalizedContent.includes('color: red') &&
+    !normalizedContent.includes('color:red') &&
+    !normalizedContent.includes('<span')
+  ) {
+    return [{ text: normalizeGodText(normalizedContent.replace(/<[^>]+>/g, '').trim()), isRed: false }];
   }
 
   // Handle potentially unclosed span tags
-  let normalized = content;
+  let normalized = normalizedContent;
   const openMatches = normalized.match(/<span[^>]*class=['\"][^'\"]*browse-verse-red[^'\"]*['\"][^>]*>|<span[^>]*style=['\"][^'\"]*color:\s*red[^'\"]*['\"][^>]*>/gi) || [];
   const closeMatches = normalized.match(/<\/span>/gi) || [];
   if (openMatches.length > closeMatches.length) {
@@ -98,12 +113,12 @@ export function parseSegmentsFromHtml(content: string): VerseSegment[] {
   while ((match = regex.exec(normalized)) !== null) {
     const redContent = match[1] ?? match[2];
     if (redContent !== undefined) {
-      const cleanText = redContent.replace(/<[^>]+>/g, '');
+      const cleanText = normalizeGodText(redContent.replace(/<[^>]+>/g, ''));
       if (cleanText) {
         segments.push({ text: cleanText, isRed: true });
       }
     } else if (match[3] !== undefined) {
-      const cleanText = match[3];
+      const cleanText = normalizeGodText(match[3]);
       if (cleanText) {
         segments.push({ text: cleanText, isRed: false });
       }
@@ -112,7 +127,7 @@ export function parseSegmentsFromHtml(content: string): VerseSegment[] {
 
   return segments.length > 0
     ? segments
-    : [{ text: content.replace(/<[^>]+>/g, '').trim(), isRed: false }];
+    : [{ text: normalizeGodText(normalizedContent.replace(/<[^>]+>/g, '').trim()), isRed: false }];
 }
 
 /**
@@ -446,11 +461,11 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
           content?: string;
         }) => {
           const verseNum = parseInt(v.verse || '1', 10);
-          const rawContent = v.content || '';
-          const plainText = rawContent.replace(/<[^>]+>/g, '').trim();
+          const rawContent = normalizeGodText(v.content || '');
+          const plainText = normalizeGodText(rawContent.replace(/<[^>]+>/g, '').trim());
           const segments = parseSegmentsFromHtml(rawContent);
 
-          const rawSubtitle = v.subtitle ? formatSubtitle(v.subtitle) : undefined;
+          const rawSubtitle = v.subtitle ? formatSubtitle(normalizeGodText(v.subtitle)) : undefined;
           const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
 
           return {
@@ -459,7 +474,7 @@ async function fetchFromBibleTool(bookId: string, chapter: number): Promise<Vers
             text: plainText,
             rawContent,
             segments,
-            subtitle: rawSubtitle || curatedSubtitle,
+            subtitle: rawSubtitle || (curatedSubtitle ? normalizeGodText(curatedSubtitle) : undefined),
           };
         }
       );
@@ -491,7 +506,7 @@ async function fetchFromHelloAO(
     const verses: Verse[] = [];
     for (const item of data.chapter.content) {
       if (item.type === 'verse' && typeof item.number === 'number') {
-        const rawText = extractText(item.content).replace(/\s+/g, ' ').trim();
+        const rawText = normalizeGodText(extractText(item.content).replace(/\s+/g, ' ').trim());
         if (rawText) {
           const verseNum = item.number;
           const segments: VerseSegment[] = [{ text: rawText, isRed: false }];
@@ -503,7 +518,7 @@ async function fetchFromHelloAO(
             verse: verseNum,
             text: rawText,
             segments,
-            subtitle: curatedSubtitle,
+            subtitle: curatedSubtitle ? normalizeGodText(curatedSubtitle) : undefined,
           });
         }
       }
@@ -530,7 +545,7 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
 
     if (json.status === 'success' && Array.isArray(json.record)) {
       const verses: Verse[] = json.record.map((r: { chap: number; sec: number; bible_text: string }) => {
-        const plainText = r.bible_text ? r.bible_text.replace(/[\u3000\s]+/g, ' ').trim() : '';
+        const plainText = r.bible_text ? normalizeGodText(r.bible_text.replace(/[\u3000\s]+/g, ' ').trim()) : '';
         const verseNum = r.sec;
         const segments = enrichSegmentsWithRedLetters(plainText, bookId, chapter, verseNum);
         const curatedSubtitle = getCuratedSubtitle(bookId, chapter, verseNum);
@@ -540,7 +555,7 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
           verse: verseNum,
           text: plainText,
           segments,
-          subtitle: curatedSubtitle,
+          subtitle: curatedSubtitle ? normalizeGodText(curatedSubtitle) : undefined,
         };
       });
       return verses.length > 0 ? verses : null;
@@ -595,21 +610,33 @@ export async function fetchChapterVerses(
     }
   }
 
-  // 4. Primary HelloAO API for KJV/LSG, or fallback for CUV
+  // 4. Primary HelloAO API for KJV/LSG, or fallback for CUV (prefer FHL before HelloAO)
   if (!verses) {
-    const transCode = HELLOAO_TRANSLATIONS[version] || 'cmn_cuv';
-    verses = await fetchFromHelloAO(transCode, bookId, chapter);
+    if (version === 'CUV') {
+      verses = await fetchFromFHL(bookId, chapter);
+      if (!verses) {
+        verses = await fetchFromHelloAO('cmn_cuv', bookId, chapter);
+      }
+    } else {
+      const transCode = HELLOAO_TRANSLATIONS[version] || 'cmn_cuv';
+      verses = await fetchFromHelloAO(transCode, bookId, chapter);
+    }
   }
 
-  // 5. Fallback for CUV to FHL if both failed
-  if (!verses && version === 'CUV') {
-    verses = await fetchFromFHL(bookId, chapter);
-  }
-
-  // 6. If fetched successfully, cache and return
+  // 5. If fetched successfully, normalize, cache and return
   if (verses && verses.length > 0) {
-    if (version === 'CUV' && !isFromBibleTool) {
-      verses = enrichChapterVersesWithRedLetters(verses, bookId, chapter);
+    if (version === 'CUV') {
+      if (!isFromBibleTool) {
+        verses = enrichChapterVersesWithRedLetters(verses, bookId, chapter);
+      }
+      // Ensure all CUV verses follow the "神" edition with "上帝" changed to "神"
+      verses = verses.map((v) => ({
+        ...v,
+        text: normalizeGodText(v.text),
+        rawContent: v.rawContent ? normalizeGodText(v.rawContent) : undefined,
+        subtitle: v.subtitle ? normalizeGodText(v.subtitle) : undefined,
+        segments: v.segments?.map((s) => ({ ...s, text: normalizeGodText(s.text) })),
+      }));
     }
 
     verseCache.set(cacheKey, verses);
@@ -621,7 +648,7 @@ export async function fetchChapterVerses(
     return verses;
   }
 
-  // 7. Last resort fallback if network is completely offline
+  // 6. Last resort fallback if network is completely offline
   return getOfflineFallbackVerses(bookName, chapter, version);
 }
 
