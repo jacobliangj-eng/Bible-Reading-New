@@ -135,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
               title="回到聖經書卷目錄 (TIER 2)"
             >
               <BookOpen className="w-3.5 h-3.5 text-amber-400" />
-              <span>選書卷</span>
+              <span>書卷</span>
             </button>
           )}
 
@@ -147,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
               title="回到首頁，重新選擇聖經版本 (TIER 1)"
             >
               <Home className="w-3.5 h-3.5" />
-              <span>回到首頁</span>
+              <span>首頁</span>
             </button>
           )}
 
