@@ -77,6 +77,23 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
     };
   }, []);
 
+  const getVerseLabel = (b: BookmarkType) => {
+    if (b.verseNumbers && b.verseNumbers.length > 0) {
+      if (b.verseNumbers.length === 1) {
+        return `(第 ${b.verseNumbers[0]} 節)`;
+      }
+      const isConsecutive = b.verseNumbers.every((num, i, arr) => i === 0 || num === arr[i - 1] + 1);
+      if (isConsecutive) {
+        return `(第 ${b.verseNumbers[0]}~${b.verseNumbers[b.verseNumbers.length - 1]} 節)`;
+      }
+      return `(第 ${b.verseNumbers.join(', ')} 節)`;
+    }
+    if (b.startVerse !== undefined && b.endVerse !== undefined) {
+      return b.startVerse === b.endVerse ? `(第 ${b.startVerse} 節)` : `(第 ${b.startVerse}~${b.endVerse} 節)`;
+    }
+    return '';
+  };
+
   const handleRequestDelete = (bookmark: BookmarkType, e: React.MouseEvent) => {
     e.stopPropagation();
     setBookmarkToDelete(bookmark);
@@ -362,9 +379,9 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                         : b.version === 'LSG'
                         ? `${b.bookName} ${b.bookId === 'PSA' ? 'Psaume' : 'Chapitre'} ${b.chapter}`
                         : `${b.bookName} 第 ${b.chapter} ${b.bookId === 'PSA' || b.bookName.includes('詩篇') ? '篇' : '章'}`}
-                      {isVerseMode && b.startVerse !== undefined && b.endVerse !== undefined ? (
+                      {getVerseLabel(b) ? (
                         <span className="ml-1 text-amber-300 font-normal text-xs">
-                          (第 {b.startVerse}~{b.endVerse} 節)
+                          {getVerseLabel(b)}
                         </span>
                       ) : null}
                     </h4>
@@ -433,9 +450,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                     : bookmarkToDelete.version === 'LSG'
                     ? `${bookmarkToDelete.bookId === 'PSA' ? 'Psaume' : 'Chapitre'} ${bookmarkToDelete.chapter}`
                     : `第 ${bookmarkToDelete.chapter} ${bookmarkToDelete.bookId === 'PSA' || bookmarkToDelete.bookName.includes('詩篇') ? '篇' : '章'}`}
-                  {bookmarkToDelete.startVerse !== undefined && bookmarkToDelete.endVerse !== undefined
-                    ? ` (第 ${bookmarkToDelete.startVerse}~${bookmarkToDelete.endVerse} 節)`
-                    : ''}】
+                  {getVerseLabel(bookmarkToDelete) ? ` ${getVerseLabel(bookmarkToDelete)}` : ''}】
                 </div>
                 {bookmarkToDelete.previewText && (
                   <p className="text-zinc-400 text-[11px] line-clamp-2 italic">

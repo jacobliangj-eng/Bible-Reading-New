@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Play,
   Pause,
@@ -36,6 +36,7 @@ interface Tier3ScriptureReaderProps {
   initialReadingMode?: ReadingMode;
   initialStartVerse?: number;
   initialEndVerse?: number;
+  initialVerseNumbers?: number[];
   onSelectBook?: (book: BibleBook, chapter?: number, autoPlay?: boolean) => void;
   onGoBackToTier2: () => void;
   onGoHome: () => void;
@@ -58,6 +59,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   initialReadingMode,
   initialStartVerse,
   initialEndVerse,
+  initialVerseNumbers,
   onSelectBook,
   onGoBackToTier2,
   onGoHome,
@@ -182,22 +184,168 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const sV = Math.min(startVerseNum, endVerseNum);
   const eV = Math.max(startVerseNum, endVerseNum);
 
-  const [isBookmarkedState, setIsBookmarkedState] = useState<boolean>(false);
+  // 自訂指定經文節數（例如從非連續書籤進入時）
+  const [customVerseNumbers, setCustomVerseNumbers] = useState<number[] | undefined>(initialVerseNumbers);
 
   useEffect(() => {
-    setIsBookmarkedState(
-      isBookmarked(
+    setCustomVerseNumbers(initialVerseNumbers);
+  }, [initialVerseNumbers]);
+
+  // Underlined verses state (單擊經文出現黑色虛線，可進行複製或加書籤)
+  // 注意：點擊書籤進入閱讀時，所顯示的經文無須顯示黑色底線
+  const [underlinedVerseNums, setUnderlinedVerseNums] = useState<number[]>([]);
+  const [bookmarkUpdateCounter, setBookmarkUpdateCounter] = useState<number>(0);
+  const [actionToast, setActionToast] = useState<string | null>(null);
+  const [copyVersesSuccess, setCopyVersesSuccess] = useState<boolean>(false);
+
+  const showToast = (msg: string) => {
+    setActionToast(msg);
+    setTimeout(() => {
+      setActionToast((curr) => (curr === msg ? null : curr));
+    }, 2500);
+  };
+
+  useEffect(() => {
+    // 進入閱讀時或切換章節時，所顯示的經文無須顯示黑色底線
+    setUnderlinedVerseNums([]);
+  }, [viewChapter, selectedBook.id, initialVerseNumbers]);
+
+  const isBookmarkedState = useMemo(() => {
+    if (underlinedVerseNums.length > 0) {
+      const sorted = [...underlinedVerseNums].sort((a, b) => a - b);
+      return isBookmarked(
         selectedVersion,
         selectedBook.id,
         viewChapter,
-        isVerseMode ? 'VERSES' : undefined,
-        isVerseMode ? sV : undefined,
-        isVerseMode ? eV : undefined
-      )
+        'VERSES',
+        sorted[0],
+        sorted[sorted.length - 1],
+        sorted
+      );
+    }
+    if (customVerseNumbers && customVerseNumbers.length > 0) {
+      const sorted = [...customVerseNumbers].sort((a, b) => a - b);
+      return isBookmarked(
+        selectedVersion,
+        selectedBook.id,
+        viewChapter,
+        'VERSES',
+        sorted[0],
+        sorted[sorted.length - 1],
+        sorted
+      );
+    }
+    return isBookmarked(
+      selectedVersion,
+      selectedBook.id,
+      viewChapter,
+      isVerseMode ? 'VERSES' : undefined,
+      isVerseMode ? sV : undefined,
+      isVerseMode ? eV : undefined
     );
-  }, [selectedVersion, selectedBook.id, viewChapter, readingMode, sV, eV]);
+  }, [
+    selectedVersion,
+    selectedBook.id,
+    viewChapter,
+    readingMode,
+    sV,
+    eV,
+    underlinedVerseNums,
+    customVerseNumbers,
+    bookmarkUpdateCounter,
+  ]);
 
   const handleToggleBookmark = () => {
+    if (underlinedVerseNums.length > 0) {
+      const sorted = [...underlinedVerseNums].sort((a, b) => a - b);
+      const minV = sorted[0];
+      const maxV = sorted[sorted.length - 1];
+
+      const bookmarkId = getBookmarkId({
+        version: selectedVersion,
+        bookId: selectedBook.id,
+        chapter: viewChapter,
+        readingMode: 'VERSES',
+        startVerse: minV,
+        endVerse: maxV,
+        verseNumbers: sorted,
+      });
+
+      if (isBookmarkedState) {
+        removeBookmark(bookmarkId);
+        setBookmarkUpdateCounter((c) => c + 1);
+        showToast('已將所選經文從書籤移除');
+      } else {
+        const selectedObjs = activeVerses.filter((v) => sorted.includes(v.verse));
+        const preview = selectedObjs
+          .map((v) => `第 ${v.verse} 節: ${v.text.slice(0, 45)}`)
+          .join(' | ');
+
+        saveBookmark({
+          bookId: selectedBook.id,
+          bookName: bookName,
+          chapter: viewChapter,
+          version: selectedVersion,
+          previewText: preview,
+          readingMode: 'VERSES',
+          startVerse: minV,
+          endVerse: maxV,
+          verseNumbers: sorted,
+        });
+        setBookmarkUpdateCounter((c) => c + 1);
+        const label = sorted.length === 1 ? `第 ${sorted[0]} 節` : `第 ${sorted.join(', ')} 節`;
+        showToast(`已將 ${label} 加入 TIER1 書籤！`);
+      }
+      // 點擊加書籤按鈕後，虛線立刻消失
+      setUnderlinedVerseNums([]);
+      return;
+    }
+
+    if (customVerseNumbers && customVerseNumbers.length > 0) {
+      const sorted = [...customVerseNumbers].sort((a, b) => a - b);
+      const minV = sorted[0];
+      const maxV = sorted[sorted.length - 1];
+
+      const bookmarkId = getBookmarkId({
+        version: selectedVersion,
+        bookId: selectedBook.id,
+        chapter: viewChapter,
+        readingMode: 'VERSES',
+        startVerse: minV,
+        endVerse: maxV,
+        verseNumbers: sorted,
+      });
+
+      if (isBookmarkedState) {
+        removeBookmark(bookmarkId);
+        setBookmarkUpdateCounter((c) => c + 1);
+        showToast('已將此書籤移除');
+      } else {
+        const selectedObjs = activeVerses.filter((v) => sorted.includes(v.verse));
+        const preview = selectedObjs
+          .map((v) => `第 ${v.verse} 節: ${v.text.slice(0, 45)}`)
+          .join(' | ');
+
+        saveBookmark({
+          bookId: selectedBook.id,
+          bookName: bookName,
+          chapter: viewChapter,
+          version: selectedVersion,
+          previewText: preview,
+          readingMode: 'VERSES',
+          startVerse: minV,
+          endVerse: maxV,
+          verseNumbers: sorted,
+        });
+        setBookmarkUpdateCounter((c) => c + 1);
+        const label = sorted.length === 1 ? `第 ${sorted[0]} 節` : `第 ${sorted.join(', ')} 節`;
+        showToast(`已將 ${label} 加入 TIER1 書籤！`);
+      }
+      // 點擊加書籤按鈕後，虛線立刻消失
+      setUnderlinedVerseNums([]);
+      return;
+    }
+
     const bookmarkId = getBookmarkId({
       version: selectedVersion,
       bookId: selectedBook.id,
@@ -209,7 +357,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
     if (isBookmarkedState) {
       removeBookmark(bookmarkId);
-      setIsBookmarkedState(false);
+      setBookmarkUpdateCounter((c) => c + 1);
+      showToast('已從 TIER1 書籤移除');
     } else {
       let preview = '';
       if (activeVerses.length > 0) {
@@ -226,7 +375,58 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         startVerse: isVerseMode ? sV : undefined,
         endVerse: isVerseMode ? eV : undefined,
       });
-      setIsBookmarkedState(true);
+      setBookmarkUpdateCounter((c) => c + 1);
+      showToast('已加入 TIER1 書籤！');
+    }
+    // 點擊加書籤按鈕後，虛線立刻消失
+    setUnderlinedVerseNums([]);
+  };
+
+  // 複製經文（若有底線選取則複製所選經文，點擊後虛線立刻消失；否則複製目前顯示經文）
+  const handleCopyUnderlinedVerses = async (e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    let targetVerseNums: number[] = [];
+    const hasSelection = underlinedVerseNums.length > 0;
+    if (hasSelection) {
+      targetVerseNums = [...underlinedVerseNums].sort((a, b) => a - b);
+    } else if (customVerseNumbers && customVerseNumbers.length > 0) {
+      targetVerseNums = [...customVerseNumbers].sort((a, b) => a - b);
+    } else if (activeVerses.length > 0) {
+      targetVerseNums = activeVerses.map((v) => v.verse);
+    }
+
+    if (targetVerseNums.length === 0) return;
+    const lines = targetVerseNums.map((vNum) => {
+      const vObj = activeVerses.find((v) => v.verse === vNum);
+      const text = vObj ? normalizeGodTerms(vObj.text) : '';
+      return `${bookName} ${viewChapter}:${vNum} ${text}`;
+    });
+    const copyText = lines.join('\n');
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(copyText);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = copyText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopyVersesSuccess(true);
+      showToast(hasSelection ? `已複製選取的 ${targetVerseNums.length} 節經文！` : `已複製經文！`);
+      // 點擊複製按鈕後，虛線立刻消失
+      setUnderlinedVerseNums([]);
+      setTimeout(() => {
+        setCopyVersesSuccess(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy verses:', err);
     }
   };
 
@@ -421,15 +621,25 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         let resultVerses = chVerses;
         const sV = Math.min(startVerseNum, endVerseNum);
         const eV = Math.max(startVerseNum, endVerseNum);
-        if (readingMode === 'VERSES' && (sV > 1 || eV < chVerses.length)) {
-          resultVerses = chVerses.filter((v) => v.verse >= sV && v.verse <= eV);
+        if (readingMode === 'VERSES') {
+          if (customVerseNumbers && customVerseNumbers.length > 0) {
+            resultVerses = chVerses.filter((v) => customVerseNumbers.includes(v.verse));
+          } else if (sV > 1 || eV < chVerses.length) {
+            resultVerses = chVerses.filter((v) => v.verse >= sV && v.verse <= eV);
+          }
         }
 
         if (!isCancelled) {
           setActiveVerses(resultVerses);
           
           let targetIndex = 0;
-          if (initialVerse && initialVerse > 1) {
+          if (initialVerseNumbers && initialVerseNumbers.length > 0) {
+            const firstV = initialVerseNumbers[0];
+            const foundIdx = resultVerses.findIndex((v) => v.verse === firstV);
+            if (foundIdx >= 0) {
+              targetIndex = foundIdx;
+            }
+          } else if (initialVerse && initialVerse > 1) {
             const foundIdx = resultVerses.findIndex((v) => v.verse === initialVerse);
             if (foundIdx >= 0) {
               targetIndex = foundIdx;
@@ -510,6 +720,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     bookName,
     selectedVersion,
     isFhlMp3Mode,
+    customVerseNumbers,
   ]);
 
   // Synchronize MP3 Audio source on viewChapter or book change
@@ -1057,6 +1268,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        if (underlinedVerseNums.length > 0 && e.clipboardData) {
+          const sorted = [...underlinedVerseNums].sort((a, b) => a - b);
+          const lines = sorted.map((vNum) => {
+            const vObj = activeVerses.find((v) => v.verse === vNum);
+            const text = vObj ? normalizeGodTerms(vObj.text) : '';
+            return `${bookName} ${viewChapter}:${vNum} ${text}`;
+          });
+          e.clipboardData.setData('text/plain', lines.join('\n'));
+          e.preventDefault();
+        }
         return;
       }
 
@@ -1074,30 +1295,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return () => {
       document.removeEventListener('copy', handleNativeCopy);
     };
-  }, [bookName]);
+  }, [bookName, underlinedVerseNums, activeVerses, viewChapter]);
 
-  // Double click / double tap handler for verse row (only on outer row, not interrupting text selection)
-  const handleVerseClick = (v: Verse, idx: number, e?: React.MouseEvent) => {
-    // If text was selected by the user, do not trigger modal
+  // 單擊經文：切換底線選取狀態（若正在進行反白文字選取，則不切換底線）
+  const handleVerseClick = (v: Verse, _idx: number, _e?: React.MouseEvent) => {
+    // If text was selected by the user (反白文字中), do not toggle underline
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) {
       return;
     }
-    // If user clicked or dragged on the scripture text itself, leave text selection undisturbed
-    if (e && e.target) {
-      const target = e.target as HTMLElement;
-      if (target.closest('.verse-text-content') || target.tagName === 'P' || target.tagName === 'SPAN') {
-        return;
+
+    setUnderlinedVerseNums((prev) => {
+      if (prev.includes(v.verse)) {
+        return prev.filter((n) => n !== v.verse);
+      } else {
+        return [...prev, v.verse].sort((a, b) => a - b);
       }
-    }
-    const now = Date.now();
-    const verseKey = `${v.chapter}:${v.verse}`;
-    if (lastVerseTapRef.current.id === verseKey && now - lastVerseTapRef.current.time < 450) {
-      handleOpenCopyModal(v, idx);
-      lastVerseTapRef.current = { id: '', time: 0 };
-    } else {
-      lastVerseTapRef.current = { id: verseKey, time: now };
-    }
+    });
   };
 
   // Copy verse handler
@@ -1337,50 +1551,71 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           </div>
 
           {/* 節 */}
-          <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
-            <span className="font-bold text-amber-200 shrink-0 w-8">節：</span>
-            <select
-              value={startVerseNum}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setStartVerseNum(val);
-                if (val > endVerseNum) setEndVerseNum(val);
-                setReadingMode('VERSES');
-              }}
-              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-            >
-              {Array.from({ length: maxVersesForChapter }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  第 {i + 1} 節
-                </option>
-              ))}
-            </select>
-
-            <span className="text-yellow-600 font-bold shrink-0 px-1">至</span>
-
-            <select
-              value={endVerseNum}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setEndVerseNum(val);
-                if (val < startVerseNum) setStartVerseNum(val);
-                setReadingMode('VERSES');
-              }}
-              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-            >
-              {Array.from({ length: maxVersesForChapter }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  第 {i + 1} 節
-                </option>
-              ))}
-            </select>
-
-            {readingMode === 'VERSES' && (
-              <span className="text-[11px] text-yellow-500/80 italic ml-auto hidden sm:inline-block">
-                （指定節數模式使用逐節語音朗讀）
+          {customVerseNumbers && customVerseNumbers.length > 0 ? (
+            <div className="flex items-center gap-2 text-xs flex-wrap py-0.5">
+              <span className="font-bold text-amber-200 shrink-0">指定書籤節數：</span>
+              <span className="bg-zinc-900 border border-amber-500/60 rounded px-2.5 py-1 text-amber-300 font-bold font-mono">
+                第 {customVerseNumbers.join(', ')} 節
               </span>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomVerseNumbers(undefined);
+                  setReadingMode('CHAPTERS');
+                }}
+                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-yellow-700/50 text-[11px] font-medium cursor-pointer transition-colors"
+              >
+                查看整章
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
+              <span className="font-bold text-amber-200 shrink-0 w-8">節：</span>
+              <select
+                value={startVerseNum}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setCustomVerseNumbers(undefined);
+                  setStartVerseNum(val);
+                  if (val > endVerseNum) setEndVerseNum(val);
+                  setReadingMode('VERSES');
+                }}
+                className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
+              >
+                {Array.from({ length: maxVersesForChapter }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    第 {i + 1} 節
+                  </option>
+                ))}
+              </select>
+
+              <span className="text-yellow-600 font-bold shrink-0 px-1">至</span>
+
+              <select
+                value={endVerseNum}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setCustomVerseNumbers(undefined);
+                  setEndVerseNum(val);
+                  if (val < startVerseNum) setStartVerseNum(val);
+                  setReadingMode('VERSES');
+                }}
+                className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
+              >
+                {Array.from({ length: maxVersesForChapter }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    第 {i + 1} 節
+                  </option>
+                ))}
+              </select>
+
+              {readingMode === 'VERSES' && (
+                <span className="text-[11px] text-yellow-500/80 italic ml-auto hidden sm:inline-block">
+                  （指定節數模式使用逐節語音朗讀）
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1443,6 +1678,24 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             >
               <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
               <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
+            </button>
+
+            {/* Copy Button (移到上方「加書籤」按鈕的右邊，只顯示 icon 及複製) */}
+            <button
+              onClick={handleCopyUnderlinedVerses}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                copyVersesSuccess
+                  ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
+                  : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
+              }`}
+              title="複製經文"
+            >
+              {copyVersesSuccess ? (
+                <Check className="w-3.5 h-3.5 text-black stroke-[2.5]" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-amber-400" />
+              )}
+              <span>複製</span>
             </button>
           </div>
         </div>
@@ -1545,89 +1798,103 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     </div>
                   )}
 
-                  <div
-                    ref={(el) => {
-                      verseRefs.current[idx] = el;
-                    }}
-                    onClick={(e) => handleVerseClick(v, idx, e)}
-                    data-verse-row="true"
-                    data-chapter={v.chapter}
-                    data-verse={v.verse}
-                    className={`py-1 px-1 sm:px-1.5 md:py-0.5 rounded transition-all duration-150 relative group select-text ${
-                      isActive
-                        ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
-                        : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
-                    }`}
-                  >
-                    <div className="flex items-start gap-1.5 sm:gap-2">
-                      {/* Chapter & Verse Badge (可選取、複製，點擊可開啟複製/朗讀選項) */}
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const sel = window.getSelection();
-                          if (!sel || sel.toString().trim().length === 0) {
-                            handleOpenCopyModal(v, idx);
-                          }
+                  {(() => {
+                    const isUnderlined = underlinedVerseNums.includes(v.verse);
+
+                    return (
+                      <div
+                        ref={(el) => {
+                          verseRefs.current[idx] = el;
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleOpenCopyModal(v, idx);
-                          }
-                        }}
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 select-text cursor-pointer transition-transform hover:scale-105 active:scale-95 ${
+                        onClick={(e) => handleVerseClick(v, idx, e)}
+                        data-verse-row="true"
+                        data-chapter={v.chapter}
+                        data-verse={v.verse}
+                        className={`py-1 px-1 sm:px-1.5 md:py-0.5 rounded transition-all duration-150 relative group select-text cursor-pointer ${
                           isActive
-                            ? 'bg-amber-500 text-black shadow-xs font-extrabold'
-                            : 'bg-amber-100 text-amber-900 border border-amber-300/80 group-hover:border-amber-400 group-hover:bg-amber-200/80'
+                            ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
+                            : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
                         }`}
-                        title={`點擊複製或從第 ${v.verse} 節開始朗讀（可拖曳選取經文與節數）`}
                       >
-                        <span className="inline-block w-0 max-w-0 opacity-0 overflow-hidden select-text whitespace-nowrap pointer-events-none">
-                          {bookName}{' '}
-                        </span>
-                        <span className="select-text">
-                          {v.chapter}:{v.verse}
-                        </span>
-                      </span>
+                        <div className="flex items-start gap-1.5 sm:gap-2">
+                          {/* Chapter & Verse Badge (可選取、複製，點擊可開啟複製/朗讀選項) */}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const sel = window.getSelection();
+                              if (!sel || sel.toString().trim().length === 0) {
+                                handleOpenCopyModal(v, idx);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleOpenCopyModal(v, idx);
+                              }
+                            }}
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 select-text cursor-pointer transition-transform hover:scale-105 active:scale-95 ${
+                              isActive
+                                ? 'bg-amber-500 text-black shadow-xs font-extrabold'
+                                : isUnderlined
+                                ? 'bg-zinc-900 text-amber-200 border border-zinc-700 font-extrabold shadow-xs'
+                                : 'bg-amber-100 text-amber-900 border border-amber-300/80 group-hover:border-amber-400 group-hover:bg-amber-200/80'
+                            }`}
+                            title={`點擊複製或從第 ${v.verse} 節開始朗讀（可拖曳選取經文與節數）`}
+                          >
+                            <span className="inline-block w-0 max-w-0 opacity-0 overflow-hidden select-text whitespace-nowrap pointer-events-none">
+                              {bookName}{' '}
+                            </span>
+                            <span className="select-text">
+                              {v.chapter}:{v.verse}
+                            </span>
+                          </span>
 
-                      {/* Verse Text (游標移入為文字選取樣式，可任意點按拖曳選取) */}
-                      <div className="flex-1 min-w-0 select-text cursor-text verse-text-content">
-                        <p
-                          className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed select-text cursor-text ${getFontSizeClass()} ${
-                            isActive
-                              ? 'text-zinc-950 font-medium'
-                              : 'text-zinc-800 group-hover:text-zinc-950'
-                          }`}
-                        >
-                          {(() => {
-                            const displaySegments =
-                              v.segments && v.segments.length > 0
-                                ? v.segments
-                                : [{ text: v.text, isRed: false }];
+                          {/* Verse Text (單擊切換細黑色虛線選取，亦可長按任意反白拖曳選取) */}
+                          <div className="flex-1 min-w-0 select-text cursor-pointer verse-text-content">
+                            <p
+                              className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed select-text cursor-pointer ${getFontSizeClass()} ${
+                                isUnderlined
+                                  ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[5px]'
+                                  : ''
+                              } ${
+                                isActive
+                                  ? 'text-zinc-950 font-medium'
+                                  : 'text-zinc-800 group-hover:text-zinc-950'
+                              }`}
+                            >
+                              {(() => {
+                                const displaySegments =
+                                  v.segments && v.segments.length > 0
+                                    ? v.segments
+                                    : [{ text: v.text, isRed: false }];
 
-                            return displaySegments.map((seg, sIdx) => {
-                              const segText = normalizeGodTerms(seg.text);
-                              return seg.isRed ? (
-                                <span
-                                  key={sIdx}
-                                  className="verse-red-letter text-red-600 font-medium select-text cursor-text"
-                                  style={{ color: '#dc2626' }}
-                                >
-                                  {segText}
-                                </span>
-                              ) : (
-                                <span key={sIdx} className="select-text cursor-text">
-                                  {segText}
-                                </span>
-                              );
-                            });
-                          })()}
-                        </p>
+                                return displaySegments.map((seg, sIdx) => {
+                                  const segText = normalizeGodTerms(seg.text);
+                                  return seg.isRed ? (
+                                    <span
+                                      key={sIdx}
+                                      className={`verse-red-letter text-red-600 font-medium select-text cursor-pointer ${
+                                        isUnderlined ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[5px]' : ''
+                                      }`}
+                                      style={{ color: '#dc2626' }}
+                                    >
+                                      {segText}
+                                    </span>
+                                  ) : (
+                                    <span key={sIdx} className="select-text cursor-pointer">
+                                      {segText}
+                                    </span>
+                                  );
+                                });
+                              })()}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </React.Fragment>
               );
             })}
@@ -1723,6 +1990,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 操作提示 Toast */}
+      {actionToast && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 animate-fade-in pointer-events-none">
+          <div className="px-4 py-2 bg-zinc-950/95 border border-amber-400 text-amber-300 rounded-full shadow-2xl text-xs font-bold flex items-center gap-2 backdrop-blur-md">
+            <Bookmark className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span>{actionToast}</span>
           </div>
         </div>
       )}

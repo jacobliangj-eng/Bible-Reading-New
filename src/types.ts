@@ -73,6 +73,7 @@ export interface Bookmark {
   startVerse?: number;
   endVerse?: number;
   readingMode?: ReadingMode;
+  verseNumbers?: number[];
 }
 
 export interface BibleSearchResult {

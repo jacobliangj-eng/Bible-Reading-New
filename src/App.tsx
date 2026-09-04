@@ -22,6 +22,7 @@ export default function App() {
   const [initialReadingMode, setInitialReadingMode] = useState<ReadingMode | undefined>(undefined);
   const [initialStartVerse, setInitialStartVerse] = useState<number | undefined>(undefined);
   const [initialEndVerse, setInitialEndVerse] = useState<number | undefined>(undefined);
+  const [initialVerseNumbers, setInitialVerseNumbers] = useState<number[] | undefined>(undefined);
   const [isFromBookmark, setIsFromBookmark] = useState<boolean>(false);
   const [autoStartPlayback, setAutoStartPlayback] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -127,6 +128,7 @@ export default function App() {
     setInitialReadingMode(undefined);
     setInitialStartVerse(undefined);
     setInitialEndVerse(undefined);
+    setInitialVerseNumbers(undefined);
     setIsFromBookmark(false);
     setAutoStartPlayback(autoPlay);
     setCurrentTier('TIER3');
@@ -143,6 +145,7 @@ export default function App() {
       setInitialReadingMode(bookmark.readingMode || (bookmark.startVerse !== undefined ? 'VERSES' : 'CHAPTERS'));
       setInitialStartVerse(bookmark.startVerse);
       setInitialEndVerse(bookmark.endVerse);
+      setInitialVerseNumbers(bookmark.verseNumbers);
       setIsFromBookmark(true);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -159,6 +162,7 @@ export default function App() {
       setInitialReadingMode(record.readingMode || 'CHAPTERS');
       setInitialStartVerse(record.startVerse || record.verse);
       setInitialEndVerse(record.endVerse);
+      setInitialVerseNumbers(undefined);
       setIsFromBookmark(false);
       setAutoStartPlayback(true);
       setCurrentTier('TIER3');
@@ -175,6 +179,7 @@ export default function App() {
       setInitialReadingMode('CHAPTERS');
       setInitialStartVerse(undefined);
       setInitialEndVerse(undefined);
+      setInitialVerseNumbers(undefined);
       setIsFromBookmark(false);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -237,6 +242,7 @@ export default function App() {
             initialReadingMode={initialReadingMode}
             initialStartVerse={initialStartVerse}
             initialEndVerse={initialEndVerse}
+            initialVerseNumbers={initialVerseNumbers}
             onSelectBook={handleSelectBook}
             onGoBackToTier2={handleGoBackToTier2}
             onGoHome={handleGoHome}

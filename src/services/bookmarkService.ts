@@ -9,7 +9,12 @@ export function getBookmarkId(b: {
   readingMode?: ReadingMode;
   startVerse?: number;
   endVerse?: number;
+  verseNumbers?: number[];
 }): string {
+  if (b.verseNumbers && b.verseNumbers.length > 0) {
+    const sorted = [...b.verseNumbers].sort((a, b) => a - b);
+    return `${b.version}_${b.bookId}_${b.chapter}_v${sorted.join('_')}`;
+  }
   if ((b.readingMode === 'VERSES' || (b.startVerse !== undefined && b.endVerse !== undefined)) && b.startVerse !== undefined && b.endVerse !== undefined) {
     return `${b.version}_${b.bookId}_${b.chapter}_v${b.startVerse}-${b.endVerse}`;
   }
@@ -71,9 +76,10 @@ export function isBookmarked(
   chapter: number,
   readingMode?: ReadingMode,
   startVerse?: number,
-  endVerse?: number
+  endVerse?: number,
+  verseNumbers?: number[]
 ): boolean {
   const current = getBookmarks();
-  const id = getBookmarkId({ version, bookId, chapter, readingMode, startVerse, endVerse });
+  const id = getBookmarkId({ version, bookId, chapter, readingMode, startVerse, endVerse, verseNumbers });
   return current.some((b) => b.id === id);
 }
