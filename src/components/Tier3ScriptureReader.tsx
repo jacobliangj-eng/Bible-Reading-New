@@ -1359,11 +1359,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Font size CSS mapping
+  // Font size CSS mapping - compact line heights to show more verses per screen
   const getFontSizeClass = () => {
-    if (fontSize === 'normal') return 'text-sm md:text-base leading-snug';
-    if (fontSize === 'large') return 'text-base md:text-lg leading-snug';
-    return 'text-lg md:text-xl leading-normal';
+    if (fontSize === 'normal') return 'text-sm md:text-base leading-[1.3]';
+    if (fontSize === 'large') return 'text-base md:text-lg leading-[1.3]';
+    return 'text-lg md:text-xl leading-[1.3]';
   };
 
   // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕)
@@ -1660,8 +1660,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 <React.Fragment key={`${v.chapter}_${v.verse}_${idx}`}>
                   {/* Canonical Section Subtitle Header (分段小標題 - 獨立尊貴導讀標題條) */}
                   {sectionSubtitle && (
-                    <div className="pt-4 pb-1.5 px-1 mt-2 mb-1 flex items-center gap-2 select-text">
-                      <span className="w-1.5 h-3.5 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs select-none"></span>
+                    <div className="pt-2 pb-1 px-1 mt-1 mb-0.5 flex items-center gap-2 select-text">
+                      <span className="w-1.5 h-3 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs select-none"></span>
                       <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5 select-text cursor-text">
                         {normalizeGodTerms(sectionSubtitle)}
                       </h4>
@@ -1681,7 +1681,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                         data-verse-row="true"
                         data-chapter={v.chapter}
                         data-verse={v.verse}
-                        className={`py-1 px-1 sm:px-1.5 md:py-0.5 rounded transition-all duration-150 relative group select-text cursor-pointer ${
+                        className={`py-0.5 px-1 sm:px-1.5 md:py-0.5 rounded transition-all duration-150 relative group select-text cursor-pointer ${
                           isActive
                             ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
                             : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
@@ -1705,7 +1705,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                 handleOpenCopyModal(v, idx);
                               }
                             }}
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 select-text cursor-pointer transition-transform hover:scale-105 active:scale-95 ${
+                            className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 select-text cursor-pointer transition-transform hover:scale-105 active:scale-95 ${
                               isActive
                                 ? 'bg-amber-500 text-black shadow-xs font-extrabold'
                                 : isUnderlined
@@ -1725,9 +1725,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                           {/* Verse Text (單擊切換細黑色虛線選取，亦可長按任意反白拖曳選取) */}
                           <div className="flex-1 min-w-0 select-text cursor-pointer verse-text-content">
                             <p
-                              className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed select-text cursor-pointer ${getFontSizeClass()} ${
+                              className={`font-serif tracking-normal transition-all select-text cursor-pointer ${getFontSizeClass()} ${
                                 isUnderlined
-                                  ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[5px]'
+                                  ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]'
                                   : ''
                               } ${
                                 isActive
@@ -1747,7 +1747,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                     <span
                                       key={sIdx}
                                       className={`verse-red-letter text-red-600 font-medium select-text cursor-pointer ${
-                                        isUnderlined ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[5px]' : ''
+                                        isUnderlined ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]' : ''
                                       }`}
                                       style={{ color: '#dc2626' }}
                                     >
