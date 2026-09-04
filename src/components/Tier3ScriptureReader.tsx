@@ -986,11 +986,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     setCopySuccess(false);
   };
 
-  // Floating Action Toolbar for selected text (自由選取經文文字浮動工具列)
-  const [selectedScriptureText, setSelectedScriptureText] = useState<string>('');
-  const [floatingToolbarPos, setFloatingToolbarPos] = useState<{ x: number; y: number } | null>(null);
-  const [copiedSuccessToast, setCopiedSuccessToast] = useState<boolean>(false);
-
   // Helper to resolve verse info from selection
   const getVerseInfoFromSelection = (): { chapter: string; verse: string } | null => {
     try {
@@ -1010,42 +1005,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
     return null;
   };
-
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
-        setFloatingToolbarPos(null);
-        setSelectedScriptureText('');
-        return;
-      }
-
-      const text = selection.toString().trim();
-      if (text.length > 0) {
-        try {
-          const range = selection.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          if (rect.width > 0 && rect.height > 0) {
-            setSelectedScriptureText(text);
-            const toolbarX = Math.min(window.innerWidth - 85, Math.max(85, rect.left + rect.width / 2));
-            // On mobile devices, position safely below the selection if near top edge to avoid overlapping system menus
-            const toolbarY = rect.top > 65 ? rect.top - 46 : Math.min(window.innerHeight - 60, rect.bottom + 10);
-            setFloatingToolbarPos({
-              x: toolbarX,
-              y: toolbarY,
-            });
-          }
-        } catch {
-          // Ignore range errors
-        }
-      }
-    };
-
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange);
-    };
-  }, []);
 
   // Format scripture text for clipboard: 經卷書名＋節數標籤＋經文
   const formatScriptureClipboardText = (rawText: string): string => {
@@ -1116,31 +1075,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       document.removeEventListener('copy', handleNativeCopy);
     };
   }, [bookName]);
-
-  const handleCopySelectedText = async (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!selectedScriptureText) return;
-    const textToCopy = formatScriptureClipboardText(selectedScriptureText);
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(textToCopy);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = textToCopy;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-      setCopiedSuccessToast(true);
-      setTimeout(() => {
-        setCopiedSuccessToast(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to copy selected text:', err);
-    }
-  };
 
   // Double click / double tap handler for verse row (only on outer row, not interrupting text selection)
   const handleVerseClick = (v: Verse, idx: number, e?: React.MouseEvent) => {
@@ -1790,47 +1724,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Floating Action Toolbar for selected text (自由選取經文浮動快速工具) */}
-      {floatingToolbarPos && selectedScriptureText && (
-        <div
-          style={{
-            position: 'fixed',
-            left: `${floatingToolbarPos.x}px`,
-            top: `${floatingToolbarPos.y}px`,
-            transform: 'translateX(-50%)',
-            zIndex: 9999,
-          }}
-          className="select-none pointer-events-auto"
-        >
-          <button
-            type="button"
-            onTouchStart={(e) => {
-              // Prevent touch from collapsing the selection on mobile
-              e.stopPropagation();
-            }}
-            onMouseDown={(e) => {
-              // Prevent losing text selection highlight on mousedown
-              e.preventDefault();
-            }}
-            onClick={handleCopySelectedText}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-950/95 text-amber-300 hover:bg-zinc-900 hover:text-amber-200 border border-amber-500/70 rounded-full shadow-2xl text-xs font-bold font-sans cursor-pointer transition-transform hover:scale-105 active:scale-95 backdrop-blur-xs"
-            title="點擊複製已選取的經文字句"
-          >
-            {copiedSuccessToast ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">已複製選取字句！</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5 text-amber-400" />
-                <span>複製所選經文</span>
-              </>
-            )}
-          </button>
         </div>
       )}
     </div>
