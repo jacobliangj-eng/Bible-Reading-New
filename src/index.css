@@ -216,3 +216,24 @@ body.night-mode .verse-red-letter {
   font-weight: normal;
 }
 
+/* Scripture Text Selection Styling (自訂選取文字醒目提示) */
+::selection {
+  background-color: #fde047 !important; /* Warm gold highlight */
+  color: #18181b !important;
+}
+
+body.night-mode ::selection {
+  background-color: #4f46e5 !important; /* Indigo highlight in night mode */
+  color: #ffffff !important;
+}
+
+.verse-red-letter::selection {
+  color: #991b1b !important;
+  background-color: #fde047 !important;
+}
+
+body.night-mode .verse-red-letter::selection {
+  color: #fecaca !important;
+  background-color: #4f46e5 !important;
+}
+

@@ -646,6 +646,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     touchStartXRef.current = null;
     touchStartYRef.current = null;
 
+    // If user has selected text on mobile/touch screen, do not trigger chapter swipe
+    if (window.getSelection && window.getSelection()?.toString().trim().length > 0) {
+      return;
+    }
+
     if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
       if (deltaX < 0) {
         handleNextChapter();
@@ -973,8 +978,145 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     setCopySuccess(false);
   };
 
-  // Double click / double tap handler for verses
-  const handleVerseClick = (v: Verse, idx: number) => {
+  // Floating Action Toolbar for selected text (自由選取經文文字浮動工具列)
+  const [selectedScriptureText, setSelectedScriptureText] = useState<string>('');
+  const [floatingToolbarPos, setFloatingToolbarPos] = useState<{ x: number; y: number } | null>(null);
+  const [copiedSuccessToast, setCopiedSuccessToast] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        setFloatingToolbarPos(null);
+        setSelectedScriptureText('');
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (text.length > 0) {
+        try {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            setSelectedScriptureText(text);
+            setFloatingToolbarPos({
+              x: Math.min(window.innerWidth - 80, Math.max(80, rect.left + rect.width / 2)),
+              y: Math.max(12, rect.top - 46),
+            });
+          }
+        } catch {
+          // Ignore range errors
+        }
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, []);
+
+  // Format scripture text for clipboard: 經卷書名＋節數標籤＋經文
+  const formatScriptureClipboardText = (rawText: string): string => {
+    if (!rawText || !rawText.trim()) return rawText;
+
+    // Normalize potential line break between badge and text:
+    // e.g., "1:44\n腓力是伯賽大人..." or "約翰福音 1:44\n腓力是伯賽大人..." -> join with space
+    let normalized = rawText.replace(
+      /(^|\n)((?:[\u4e00-\u9fa5\w\s]+)?\s*\d+:\d+)\r?\n([^\d\n])/g,
+      '$1$2 $3'
+    );
+
+    const lines = normalized.split(/\r?\n/);
+    const formattedLines = lines.map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+
+      // Match badge like "1:44" or "約翰福音 1:44" or "創世記1:1" at the start of line
+      const badgeMatch = trimmed.match(/^((?:[\u4e00-\u9fa5\w\s]+)?\s*)(\d+:\d+)([\s\S]*)$/);
+      if (badgeMatch) {
+        const existingPrefix = badgeMatch[1].trim();
+        const ref = badgeMatch[2];
+        const rest = badgeMatch[3].trim();
+
+        const name = existingPrefix.includes(bookName) ? existingPrefix : bookName;
+        return rest ? `${name} ${ref} ${rest}` : `${name} ${ref}`;
+      }
+
+      return line;
+    });
+
+    return formattedLines.join('\n');
+  };
+
+  // Intercept native copy (Ctrl+C / Cmd+C / Right click -> Copy) to ensure 經卷書名＋節數標籤＋經文 format
+  useEffect(() => {
+    const handleNativeCopy = (e: ClipboardEvent) => {
+      // Do not intercept if user is typing or selecting inside an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        return;
+      }
+
+      const rawText = selection.toString();
+      const formatted = formatScriptureClipboardText(rawText);
+
+      // If formatted text contains bookName or reference
+      if (formatted && e.clipboardData) {
+        e.clipboardData.setData('text/plain', formatted);
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('copy', handleNativeCopy);
+    return () => {
+      document.removeEventListener('copy', handleNativeCopy);
+    };
+  }, [bookName]);
+
+  const handleCopySelectedText = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!selectedScriptureText) return;
+    const textToCopy = formatScriptureClipboardText(selectedScriptureText);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedSuccessToast(true);
+      setTimeout(() => {
+        setCopiedSuccessToast(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy selected text:', err);
+    }
+  };
+
+  // Double click / double tap handler for verse row (only on outer row, not interrupting text selection)
+  const handleVerseClick = (v: Verse, idx: number, e?: React.MouseEvent) => {
+    // If text was selected by the user, do not trigger modal
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+      return;
+    }
+    // If user clicked or dragged on the scripture text itself, leave text selection undisturbed
+    if (e && e.target) {
+      const target = e.target as HTMLElement;
+      if (target.closest('.verse-text-content') || target.tagName === 'P' || target.tagName === 'SPAN') {
+        return;
+      }
+    }
     const now = Date.now();
     const verseKey = `${v.chapter}:${v.verse}`;
     if (lastVerseTapRef.current.id === verseKey && now - lastVerseTapRef.current.time < 450) {
@@ -988,7 +1130,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // Copy verse handler
   const handleCopyVerseText = async () => {
     if (!selectedCopyVerse) return;
-    const formattedText = `【${bookName} ${selectedCopyVerse.chapter}:${selectedCopyVerse.verse}】${normalizeGodTerms(selectedCopyVerse.text)}`;
+    const formattedText = `${bookName} ${selectedCopyVerse.chapter}:${selectedCopyVerse.verse} ${normalizeGodTerms(selectedCopyVerse.text)}`;
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(formattedText);
@@ -1421,12 +1563,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 <React.Fragment key={`${v.chapter}_${v.verse}_${idx}`}>
                   {/* Canonical Section Subtitle Header (分段小標題 - 獨立尊貴導讀標題條) */}
                   {sectionSubtitle && (
-                    <div className="pt-4 pb-1.5 px-1 mt-2 mb-1 flex items-center gap-2 select-none">
-                      <span className="w-1.5 h-3.5 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs"></span>
-                      <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5">
+                    <div className="pt-4 pb-1.5 px-1 mt-2 mb-1 flex items-center gap-2 select-text">
+                      <span className="w-1.5 h-3.5 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs select-none"></span>
+                      <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5 select-text cursor-text">
                         {normalizeGodTerms(sectionSubtitle)}
                       </h4>
-                      <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-400/80 via-amber-200/50 to-transparent"></div>
+                      <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-400/80 via-amber-200/50 to-transparent select-none"></div>
                     </div>
                   )}
 
@@ -1434,29 +1576,53 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     ref={(el) => {
                       verseRefs.current[idx] = el;
                     }}
-                    onClick={() => handleVerseClick(v, idx)}
-                    className={`py-1 px-1 sm:px-1.5 md:py-0.5 rounded cursor-pointer transition-all duration-150 relative group touch-manipulation select-none ${
+                    onClick={(e) => handleVerseClick(v, idx, e)}
+                    data-verse-row="true"
+                    data-chapter={v.chapter}
+                    data-verse={v.verse}
+                    className={`py-1 px-1 sm:px-1.5 md:py-0.5 rounded transition-all duration-150 relative group select-text ${
                       isActive
                         ? 'active-verse bg-amber-100/95 border-2 border-amber-500 shadow-sm'
                         : 'bg-white border border-zinc-200/70 hover:border-amber-300 hover:bg-amber-50/40'
                     }`}
                   >
                     <div className="flex items-start gap-1.5 sm:gap-2">
-                      {/* Chapter & Verse Badge */}
+                      {/* Chapter & Verse Badge (可選取、複製，點擊可開啟複製/朗讀選項) */}
                       <span
-                        className={`inline-block px-1.5 py-0 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 ${
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const sel = window.getSelection();
+                          if (!sel || sel.toString().trim().length === 0) {
+                            handleOpenCopyModal(v, idx);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleOpenCopyModal(v, idx);
+                          }
+                        }}
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] md:text-[11px] font-mono font-bold shrink-0 mt-0.5 select-text cursor-pointer transition-transform hover:scale-105 active:scale-95 ${
                           isActive
                             ? 'bg-amber-500 text-black shadow-xs font-extrabold'
                             : 'bg-amber-100 text-amber-900 border border-amber-300/80 group-hover:border-amber-400 group-hover:bg-amber-200/80'
                         }`}
+                        title={`點擊複製或從第 ${v.verse} 節開始朗讀（可拖曳選取經文與節數）`}
                       >
-                        {v.chapter}:{v.verse}
+                        <span className="inline-block w-0 max-w-0 opacity-0 overflow-hidden select-text whitespace-nowrap pointer-events-none">
+                          {bookName}{' '}
+                        </span>
+                        <span className="select-text">
+                          {v.chapter}:{v.verse}
+                        </span>
                       </span>
 
-                      {/* Verse Text */}
-                      <div className="flex-1 min-w-0">
+                      {/* Verse Text (游標移入為文字選取樣式，可任意點按拖曳選取) */}
+                      <div className="flex-1 min-w-0 select-text cursor-text verse-text-content">
                         <p
-                          className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed ${getFontSizeClass()} ${
+                          className={`font-serif tracking-normal transition-all leading-normal md:leading-relaxed select-text cursor-text ${getFontSizeClass()} ${
                             isActive
                               ? 'text-zinc-950 font-medium'
                               : 'text-zinc-800 group-hover:text-zinc-950'
@@ -1473,13 +1639,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                               return seg.isRed ? (
                                 <span
                                   key={sIdx}
-                                  className="verse-red-letter text-red-600 font-medium"
+                                  className="verse-red-letter text-red-600 font-medium select-text cursor-text"
                                   style={{ color: '#dc2626' }}
                                 >
                                   {segText}
                                 </span>
                               ) : (
-                                <span key={sIdx}>{segText}</span>
+                                <span key={sIdx} className="select-text cursor-text">
+                                  {segText}
+                                </span>
                               );
                             });
                           })()}
@@ -1521,7 +1689,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               <p className="text-xs text-yellow-500/80 font-medium">是否要複製以下經文？</p>
               <div className="bg-white p-3.5 rounded-xl border border-amber-300/80 text-xs md:text-sm text-zinc-900 leading-relaxed font-serif max-h-48 overflow-y-auto shadow-inner">
                 <span className="font-bold text-amber-800 mr-1.5">
-                  【{bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}】
+                  {bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}
                 </span>
                 {(() => {
                   const copySegments =
@@ -1583,6 +1751,43 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Action Toolbar for selected text (自由選取經文浮動快速工具) */}
+      {floatingToolbarPos && selectedScriptureText && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${floatingToolbarPos.x}px`,
+            top: `${floatingToolbarPos.y}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+          }}
+          className="select-none pointer-events-auto"
+        >
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              // Prevent losing text selection highlight on mousedown
+              e.preventDefault();
+            }}
+            onClick={handleCopySelectedText}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950/95 text-amber-300 hover:bg-zinc-900 hover:text-amber-200 border border-amber-500/70 rounded-full shadow-2xl text-xs font-bold font-sans cursor-pointer transition-transform hover:scale-105 active:scale-95 backdrop-blur-xs"
+            title="點擊複製已選取的經文字句"
+          >
+            {copiedSuccessToast ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400">已複製選取字句！</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5 text-amber-400" />
+                <span>複製所選經文</span>
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>
