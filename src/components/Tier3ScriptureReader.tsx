@@ -4,7 +4,6 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  ListOrdered,
   Repeat,
   ChevronLeft,
   ChevronRight,
@@ -13,7 +12,6 @@ import {
   X,
   Bookmark,
   Loader2,
-  ExternalLink,
 } from 'lucide-react';
 import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
@@ -22,7 +20,6 @@ import {
   fetchChapterVerses,
   getFhlChapterAudioUrls,
   normalizeGodTerms,
-  getBibleToolBrowseUrl,
 } from '../services/bibleService';
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
@@ -130,7 +127,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [currentVerseIndex, setCurrentVerseIndex] = useState<number>(0);
   const [localPlaybackSpeed, setLocalPlaybackSpeed] = useState<number>(isFhlMp3Mode ? 1.25 : 1.0);
   const [isInfiniteLoop, setIsInfiniteLoop] = useState<boolean>(false);
-  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
+  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('xlarge');
 
   const playbackSpeed = propSpeed ?? localPlaybackSpeed;
   const setPlaybackSpeed = propSetSpeed ?? setLocalPlaybackSpeed;
@@ -545,7 +542,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
-  // Initialize Speech Synthesis
+  // Initialize Speech Synthesis & Audio cleanup on unmount
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       synthRef.current = window.speechSynthesis;
@@ -553,6 +550,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return () => {
       if (synthRef.current) {
         synthRef.current.cancel();
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
     };
   }, []);
@@ -1448,6 +1448,24 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         <span>下一{chapterUnit}</span>
         <ChevronRight className="w-3.5 h-3.5 text-amber-700" />
       </button>
+
+      {/* Bookmark specified verses compact indicator */}
+      {customVerseNumbers && customVerseNumbers.length > 0 && (
+        <div className="flex items-center gap-1.5 ml-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-lg text-amber-900 shadow-xs">
+          <span className="font-bold">指定：第 {customVerseNumbers.join(', ')} 節</span>
+          <button
+            type="button"
+            onClick={() => {
+              setCustomVerseNumbers(undefined);
+              setReadingMode('CHAPTERS');
+            }}
+            className="text-[11px] underline text-amber-800 hover:text-amber-950 font-bold ml-1 cursor-pointer"
+            title="切換回整章閱讀"
+          >
+            看整章
+          </button>
+        </div>
+      )}
     </div>
   );
 
@@ -1497,137 +1515,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         }}
       />
 
-      {/* TIER 3 (1) 朗讀模式選擇器 */}
-      <div className="gold-card p-2 sm:p-2.5 rounded-lg sm:rounded-xl space-y-1.5">
-        <div className="flex items-center justify-between pb-1 border-b border-yellow-800/40">
-          <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs md:text-sm">
-            <ListOrdered className="w-3.5 h-3.5 text-amber-400" />
-            <span>朗讀模式設定 (Reading Mode)</span>
-          </div>
-        </div>
-
-        {/* 範圍/章/節 控制區 */}
-        <div className="bg-black/60 p-1.5 sm:p-2 rounded-lg space-y-1.5">
-          {/* 章 / 篇 */}
-          <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
-            <span className="font-bold text-amber-200 shrink-0 w-8">{chapterUnit}：</span>
-            <select
-              value={startChapter}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setStartChapter(val);
-                if (val > endChapter) setEndChapter(val);
-                setViewChapter(val);
-                setTargetChapter(val);
-                setReadingMode('CHAPTERS');
-              }}
-              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-            >
-              {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  第 {i + 1} {chapterUnit}
-                </option>
-              ))}
-            </select>
-
-            <span className="text-yellow-600 font-bold shrink-0 px-1">至</span>
-
-            <select
-              value={endChapter}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                setEndChapter(val);
-                if (val < startChapter) setStartChapter(val);
-                setReadingMode('CHAPTERS');
-              }}
-              className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-            >
-              {Array.from({ length: selectedBook.chaptersCount }, (_, i) => (
-                <option key={i + 1} value={i + 1}>
-                  第 {i + 1} {chapterUnit}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* 節 */}
-          {customVerseNumbers && customVerseNumbers.length > 0 ? (
-            <div className="flex items-center gap-2 text-xs flex-wrap py-0.5">
-              <span className="font-bold text-amber-200 shrink-0">指定書籤節數：</span>
-              <span className="bg-zinc-900 border border-amber-500/60 rounded px-2.5 py-1 text-amber-300 font-bold font-mono">
-                第 {customVerseNumbers.join(', ')} 節
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomVerseNumbers(undefined);
-                  setReadingMode('CHAPTERS');
-                }}
-                className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-yellow-700/50 text-[11px] font-medium cursor-pointer transition-colors"
-              >
-                查看整章
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs flex-nowrap overflow-x-auto">
-              <span className="font-bold text-amber-200 shrink-0 w-8">節：</span>
-              <select
-                value={startVerseNum}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setCustomVerseNumbers(undefined);
-                  setStartVerseNum(val);
-                  if (val > endVerseNum) setEndVerseNum(val);
-                  setReadingMode('VERSES');
-                }}
-                className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-              >
-                {Array.from({ length: maxVersesForChapter }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    第 {i + 1} 節
-                  </option>
-                ))}
-              </select>
-
-              <span className="text-yellow-600 font-bold shrink-0 px-1">至</span>
-
-              <select
-                value={endVerseNum}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setCustomVerseNumbers(undefined);
-                  setEndVerseNum(val);
-                  if (val < startVerseNum) setStartVerseNum(val);
-                  setReadingMode('VERSES');
-                }}
-                className="bg-zinc-900 border border-yellow-600/50 rounded px-2 py-0.5 text-amber-200 font-bold text-xs focus:border-amber-400 shrink-0 cursor-pointer"
-              >
-                {Array.from({ length: maxVersesForChapter }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    第 {i + 1} 節
-                  </option>
-                ))}
-              </select>
-
-              {readingMode === 'VERSES' && (
-                <span className="text-[11px] text-yellow-500/80 italic ml-auto hidden sm:inline-block">
-                  （指定節數模式使用逐節語音朗讀）
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Main Reading Playbar */}
       <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-1.5 sm:space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* Left Playback Control Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-2 w-full">
+          {/* Left Playback Control Buttons (手機上 4 個按鈕固定排成同一列) */}
+          <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">
             {/* Main Play/Pause Button */}
             <button
               onClick={handleTogglePlayPause}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+              className={`w-full sm:w-auto px-1 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 sm:gap-1.5 border transition-all cursor-pointer whitespace-nowrap ${
                 isPlaying
                   ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
@@ -1636,17 +1532,17 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             >
               {isAudioBuffering ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>載入中...</span>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                  <span>載入</span>
                 </>
               ) : isPlaying ? (
                 <>
-                  <Pause className="w-3.5 h-3.5 fill-current" />
+                  <Pause className="w-3.5 h-3.5 fill-current shrink-0" />
                   <span>暫停</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <Play className="w-3.5 h-3.5 fill-current shrink-0" />
                   <span>開始</span>
                 </>
               )}
@@ -1655,35 +1551,35 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             {/* Repeat Mode Toggle */}
             <button
               onClick={() => setIsInfiniteLoop(!isInfiniteLoop)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+              className={`w-full sm:w-auto px-1 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all cursor-pointer whitespace-nowrap ${
                 isInfiniteLoop
                   ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
               }`}
               title={isInfiniteLoop ? '循環播放中' : '單次播放'}
             >
-              <Repeat className="w-3.5 h-3.5" />
+              <Repeat className="w-3.5 h-3.5 shrink-0" />
               <span>{isInfiniteLoop ? '循環' : '單次'}</span>
             </button>
 
             {/* Bookmark Button */}
             <button
               onClick={handleToggleBookmark}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+              className={`w-full sm:w-auto px-1 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all cursor-pointer whitespace-nowrap ${
                 isBookmarkedState
                   ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
               }`}
               title={isBookmarkedState ? '移除書籤' : '加書籤'}
             >
-              <Bookmark className={`w-3.5 h-3.5 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
+              <Bookmark className={`w-3.5 h-3.5 shrink-0 ${isBookmarkedState ? 'fill-current text-black' : 'text-amber-400'}`} />
               <span>{isBookmarkedState ? '已加入' : '加書籤'}</span>
             </button>
 
             {/* Copy Button (移到上方「加書籤」按鈕的右邊，只顯示 icon 及複製) */}
             <button
               onClick={handleCopyUnderlinedVerses}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+              className={`w-full sm:w-auto px-1 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all cursor-pointer whitespace-nowrap ${
                 copyVersesSuccess
                   ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
@@ -1691,9 +1587,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               title="複製經文"
             >
               {copyVersesSuccess ? (
-                <Check className="w-3.5 h-3.5 text-black stroke-[2.5]" />
+                <Check className="w-3.5 h-3.5 text-black stroke-[2.5] shrink-0" />
               ) : (
-                <Copy className="w-3.5 h-3.5 text-amber-400" />
+                <Copy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
               )}
               <span>複製</span>
             </button>
@@ -1743,9 +1639,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
             <div className="w-8 h-8 border-3 border-amber-300 border-t-amber-600 rounded-full animate-spin" />
             <p className="text-amber-800 font-serif text-xs font-medium tracking-wide animate-pulse text-center">
-              {selectedVersion === 'CUV'
-                ? `正在從「耶大雅聖經工具」立即下載『${bookName}』第 ${viewChapter} 章經文...`
-                : `正在載入『${bookName}』正統聖經經文...`}
+              正在載入『{bookName}』第 {viewChapter} 章經文...
             </p>
           </div>
         ) : activeVerses.length === 0 ? (
@@ -1754,29 +1648,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           </div>
         ) : (
           <div className="space-y-0">
-            {/* 耶大雅聖經工具 即時下載來源標註與連結 */}
-            {selectedVersion === 'CUV' && (
-              <div className="flex items-center justify-between text-[11px] text-amber-900/90 px-2 py-1 bg-amber-50/80 rounded border border-amber-200/70 mb-2 shadow-2xs select-none">
-                <div className="flex items-center gap-1.5 truncate">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse"></span>
-                  <span className="font-sans font-medium text-amber-900">經文下載：耶大雅聖經工具（和合本紅字版）</span>
-                  <span className="font-mono text-amber-950 font-bold px-1 py-0.2 bg-amber-200/70 rounded border border-amber-300/80 text-[10px]">
-                    UCV:{selectedBook.number}:{viewChapter}
-                  </span>
-                </div>
-                <a
-                  href={getBibleToolBrowseUrl(selectedBook.id, viewChapter)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-amber-800 hover:text-amber-950 underline hover:no-underline font-medium shrink-0 ml-2 text-[11px] transition-colors"
-                  title={`於「耶大雅聖經工具」官網檢視 UCV:${selectedBook.number}:${viewChapter}`}
-                >
-                  <span>開啟原始網頁</span>
-                  <ExternalLink className="w-3 h-3 text-amber-800" />
-                </a>
-              </div>
-            )}
-
             {activeVerses.map((v, idx) => {
               const isActive = isPlaying && currentVerseIndex === idx;
               const sectionSubtitle =

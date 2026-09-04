@@ -24,6 +24,12 @@ export default function App() {
   const [initialEndVerse, setInitialEndVerse] = useState<number | undefined>(undefined);
   const [initialVerseNumbers, setInitialVerseNumbers] = useState<number[] | undefined>(undefined);
   const [isFromBookmark, setIsFromBookmark] = useState<boolean>(false);
+  const [activeBookmarkOrigin, setActiveBookmarkOrigin] = useState<{
+    book: BibleBook;
+    chapter: number;
+    version: BibleVersion;
+  } | null>(null);
+  const [tier3SessionKey, setTier3SessionKey] = useState<number>(0);
   const [autoStartPlayback, setAutoStartPlayback] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
@@ -46,7 +52,19 @@ export default function App() {
     }
   }, [speechPitch]);
 
-  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
+  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bible_font_size');
+      if (saved === 'normal' || saved === 'large' || saved === 'xlarge') return saved;
+    }
+    return 'xlarge';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bible_font_size', fontSize);
+    }
+  }, [fontSize]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
   const [isNightMode, setIsNightMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -117,6 +135,7 @@ export default function App() {
   const handleSelectVersion = (version: BibleVersion) => {
     setSelectedVersion(version);
     setIsFromBookmark(false);
+    setActiveBookmarkOrigin(null);
     setCurrentTier('TIER2');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -129,8 +148,16 @@ export default function App() {
     setInitialStartVerse(undefined);
     setInitialEndVerse(undefined);
     setInitialVerseNumbers(undefined);
-    setIsFromBookmark(false);
+    if (currentTier !== 'TIER3') {
+      setIsFromBookmark(false);
+      setActiveBookmarkOrigin({
+        book,
+        chapter,
+        version: selectedVersion,
+      });
+    }
     setAutoStartPlayback(autoPlay);
+    setTier3SessionKey((k) => k + 1);
     setCurrentTier('TIER3');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -147,6 +174,12 @@ export default function App() {
       setInitialEndVerse(bookmark.endVerse);
       setInitialVerseNumbers(bookmark.verseNumbers);
       setIsFromBookmark(true);
+      setActiveBookmarkOrigin({
+        book,
+        chapter: bookmark.chapter,
+        version: bookmark.version,
+      });
+      setTier3SessionKey((k) => k + 1);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -164,7 +197,13 @@ export default function App() {
       setInitialEndVerse(record.endVerse);
       setInitialVerseNumbers(undefined);
       setIsFromBookmark(false);
+      setActiveBookmarkOrigin({
+        book,
+        chapter: record.chapter,
+        version: record.version,
+      });
       setAutoStartPlayback(true);
+      setTier3SessionKey((k) => k + 1);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -181,6 +220,12 @@ export default function App() {
       setInitialEndVerse(undefined);
       setInitialVerseNumbers(undefined);
       setIsFromBookmark(false);
+      setActiveBookmarkOrigin({
+        book,
+        chapter,
+        version: selectedVersion,
+      });
+      setTier3SessionKey((k) => k + 1);
       setCurrentTier('TIER3');
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
@@ -188,6 +233,7 @@ export default function App() {
 
   const handleGoHome = () => {
     setIsFromBookmark(false);
+    setActiveBookmarkOrigin(null);
     setCurrentTier('TIER1');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -196,6 +242,30 @@ export default function App() {
     setIsFromBookmark(false);
     setCurrentTier('TIER2');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const handleHeaderBookNameClick = () => {
+    if (currentTier === 'TIER3') {
+      const origin = activeBookmarkOrigin || (selectedBook ? {
+        book: selectedBook,
+        chapter: initialChapter || 1,
+        version: selectedVersion,
+      } : null);
+
+      if (origin) {
+        setSelectedVersion(origin.version);
+        setSelectedBook(origin.book);
+        setInitialChapter(origin.chapter);
+        setInitialVerse(1);
+        setInitialReadingMode('CHAPTERS');
+        setInitialStartVerse(1);
+        setInitialEndVerse(undefined);
+        setInitialVerseNumbers(undefined);
+        setAutoStartPlayback(false);
+        setTier3SessionKey((k) => k + 1);
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
+    }
   };
 
   return (
@@ -208,6 +278,7 @@ export default function App() {
         onGoHome={handleGoHome}
         onGoBackToTier2={handleGoBackToTier2}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onBookNameClick={handleHeaderBookNameClick}
       />
 
       {/* Main Tier View Container */}
@@ -235,6 +306,7 @@ export default function App() {
 
         {currentTier === 'TIER3' && selectedBook && (
           <Tier3ScriptureReader
+            key={`tier3-${selectedBook.id}-${tier3SessionKey}`}
             selectedBook={selectedBook}
             selectedVersion={selectedVersion}
             initialChapter={initialChapter}

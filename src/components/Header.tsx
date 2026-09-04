@@ -10,6 +10,7 @@ interface HeaderProps {
   onGoHome: () => void;
   onGoBackToTier2?: () => void;
   onOpenSettings?: () => void;
+  onBookNameClick?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onGoHome,
   onGoBackToTier2,
   onOpenSettings,
+  onBookNameClick,
 }) => {
   const versionInfo = VERSIONS[selectedVersion];
 
@@ -26,19 +28,39 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-yellow-600/30 px-4 py-2 shadow-md shadow-black/80">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
         {/* Logo & Brand Title */}
-        <div 
-          onClick={onGoHome}
-          className="flex items-center gap-2 cursor-pointer group select-none"
-        >
-          <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-yellow-300 via-amber-500 to-yellow-700 p-[1px] shadow-md shadow-amber-500/20 group-hover:shadow-amber-400/40 transition-shadow">
+        <div className="flex items-center gap-2 select-none">
+          {/* 旋轉 ICON: 點擊回到 TIER1 */}
+          <button
+            type="button"
+            onClick={onGoHome}
+            className="relative w-8 h-8 rounded-full bg-gradient-to-br from-yellow-300 via-amber-500 to-yellow-700 p-[1px] shadow-md shadow-amber-500/20 hover:shadow-amber-400/50 hover:scale-105 active:scale-95 transition-all cursor-pointer focus:outline-none shrink-0"
+            title="回到首頁 (TIER 1)"
+          >
             <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-amber-400 animate-spin-slow group-hover:scale-110 transition-transform" />
+              <BookOpen className="w-4 h-4 text-amber-400 animate-spin-slow" />
             </div>
-          </div>
+          </button>
 
-          <div>
+          {/* 左上方經卷名稱 / 標題 */}
+          <div 
+            onClick={() => {
+              if (currentTier === 'TIER3' && onBookNameClick) {
+                onBookNameClick();
+              } else {
+                onGoHome();
+              }
+            }}
+            className={`group flex flex-col justify-center cursor-pointer ${
+              currentTier === 'TIER3' ? 'hover:opacity-95' : ''
+            }`}
+            title={
+              currentTier === 'TIER3' && selectedBookName
+                ? `點擊回到「${selectedBookName}」原書籤章節與第 1 節`
+                : '聖經經文朗讀'
+            }
+          >
             <div className="flex items-center gap-1.5">
-              <h1 className="text-base md:text-lg font-bold tracking-tight text-gold-gradient leading-tight">
+              <h1 className="text-base md:text-lg font-bold tracking-tight text-gold-gradient leading-tight group-hover:brightness-125 transition-all">
                 {currentTier === 'TIER3' && selectedBookName
                   ? selectedBookName
                   : currentTier !== 'TIER1'
@@ -61,7 +83,13 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Center Breadcrumb */}
         <div className="hidden md:flex items-center gap-1.5 text-xs text-amber-200/80 bg-zinc-900/90 border border-yellow-600/30 px-2.5 py-1 rounded-full">
-          <span className="text-amber-400 font-medium">TIER 1</span>
+          <span 
+            className="text-amber-400 font-medium cursor-pointer hover:underline"
+            onClick={onGoHome}
+            title="回到首頁 (TIER 1)"
+          >
+            TIER 1
+          </span>
           {currentTier !== 'TIER1' ? (
             <span>: {versionInfo?.badge}</span>
           ) : (
@@ -71,7 +99,13 @@ export const Header: React.FC<HeaderProps> = ({
           {currentTier !== 'TIER1' && (
             <>
               <ChevronRight className="w-3 h-3 text-yellow-600" />
-              <span className="text-amber-400 font-medium">TIER 2</span>
+              <span 
+                className="text-amber-400 font-medium cursor-pointer hover:underline"
+                onClick={onGoBackToTier2}
+                title="回到聖經書卷目錄 (TIER 2)"
+              >
+                TIER 2
+              </span>
               <span>: 聖經書卷</span>
             </>
           )}
@@ -80,7 +114,13 @@ export const Header: React.FC<HeaderProps> = ({
             <>
               <ChevronRight className="w-3 h-3 text-yellow-600" />
               <span className="text-amber-400 font-medium">TIER 3</span>
-              <span className="text-amber-300 font-bold">: {selectedBookName}</span>
+              <span 
+                className="text-amber-300 font-bold cursor-pointer hover:underline"
+                onClick={onBookNameClick}
+                title={`點擊回到「${selectedBookName}」原書籤章節與第 1 節`}
+              >
+                : {selectedBookName}
+              </span>
             </>
           )}
         </div>
