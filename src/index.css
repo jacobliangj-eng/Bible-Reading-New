@@ -237,3 +237,14 @@ body.night-mode .verse-red-letter::selection {
   background-color: #4f46e5 !important;
 }
 
+/* Mobile Long-Press Scripture Selection Enhancement */
+.verse-text-content,
+.verse-text-content *,
+[data-verse-row="true"],
+.scripture-verse-text {
+  -webkit-touch-callout: default !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  touch-action: auto !important;
+}
+

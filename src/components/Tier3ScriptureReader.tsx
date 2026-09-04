@@ -556,6 +556,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // Touch Swipe Handlers for Chapter Switching (向右滑：上一章, 向左滑：下一章)
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const touchStartTimeRef = useRef<number>(0);
 
   // Quick Chapter Jump from Navigation Pill (直接輸入章數跳轉)
   const [chapterInputText, setChapterInputText] = useState<string>(String(viewChapter));
@@ -632,6 +633,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
+    touchStartTimeRef.current = Date.now();
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -642,12 +644,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
     const deltaX = touchEndX - touchStartXRef.current;
     const deltaY = touchEndY - touchStartYRef.current;
+    const duration = Date.now() - touchStartTimeRef.current;
 
     touchStartXRef.current = null;
     touchStartYRef.current = null;
 
-    // If user has selected text on mobile/touch screen, do not trigger chapter swipe
-    if (window.getSelection && window.getSelection()?.toString().trim().length > 0) {
+    // If user has selected text on mobile/touch screen, or if touch was a long-press (> 350ms),
+    // do not trigger chapter swipe
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+      return;
+    }
+    if (duration > 350) {
       return;
     }
 
@@ -983,6 +991,26 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [floatingToolbarPos, setFloatingToolbarPos] = useState<{ x: number; y: number } | null>(null);
   const [copiedSuccessToast, setCopiedSuccessToast] = useState<boolean>(false);
 
+  // Helper to resolve verse info from selection
+  const getVerseInfoFromSelection = (): { chapter: string; verse: string } | null => {
+    try {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return null;
+      let node: Node | null = sel.getRangeAt(0).startContainer;
+      while (node && node !== document.body) {
+        if (node instanceof HTMLElement && node.getAttribute('data-verse-row') === 'true') {
+          const ch = node.getAttribute('data-chapter');
+          const vs = node.getAttribute('data-verse');
+          if (ch && vs) return { chapter: ch, verse: vs };
+        }
+        node = node.parentNode;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
   useEffect(() => {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
@@ -999,9 +1027,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           const rect = range.getBoundingClientRect();
           if (rect.width > 0 && rect.height > 0) {
             setSelectedScriptureText(text);
+            const toolbarX = Math.min(window.innerWidth - 85, Math.max(85, rect.left + rect.width / 2));
+            // On mobile devices, position safely below the selection if near top edge to avoid overlapping system menus
+            const toolbarY = rect.top > 65 ? rect.top - 46 : Math.min(window.innerHeight - 60, rect.bottom + 10);
             setFloatingToolbarPos({
-              x: Math.min(window.innerWidth - 80, Math.max(80, rect.left + rect.width / 2)),
-              y: Math.max(12, rect.top - 46),
+              x: toolbarX,
+              y: toolbarY,
             });
           }
         } catch {
@@ -1028,6 +1059,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     );
 
     const lines = normalized.split(/\r?\n/);
+    const hasAnyBadge = lines.some((line) => line.match(/\d+:\d+/));
+    const fallbackVerse = !hasAnyBadge ? getVerseInfoFromSelection() : null;
+
     const formattedLines = lines.map((line) => {
       const trimmed = line.trim();
       if (!trimmed) return line;
@@ -1043,13 +1077,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         return rest ? `${name} ${ref} ${rest}` : `${name} ${ref}`;
       }
 
+      // If line does not have badge but selection is in a verse row
+      if (fallbackVerse) {
+        return `${bookName} ${fallbackVerse.chapter}:${fallbackVerse.verse} ${trimmed}`;
+      }
+
       return line;
     });
 
     return formattedLines.join('\n');
   };
 
-  // Intercept native copy (Ctrl+C / Cmd+C / Right click -> Copy) to ensure 經卷書名＋節數標籤＋經文 format
+  // Intercept native copy (Ctrl+C / Cmd+C / Right click -> Copy / Mobile Callout -> Copy) to ensure 經卷書名＋節數標籤＋經文 format
   useEffect(() => {
     const handleNativeCopy = (e: ClipboardEvent) => {
       // Do not intercept if user is typing or selecting inside an input/textarea
@@ -1078,7 +1117,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
   }, [bookName]);
 
-  const handleCopySelectedText = async (e: React.MouseEvent) => {
+  const handleCopySelectedText = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!selectedScriptureText) return;
@@ -1768,12 +1807,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         >
           <button
             type="button"
+            onTouchStart={(e) => {
+              // Prevent touch from collapsing the selection on mobile
+              e.stopPropagation();
+            }}
             onMouseDown={(e) => {
               // Prevent losing text selection highlight on mousedown
               e.preventDefault();
             }}
             onClick={handleCopySelectedText}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950/95 text-amber-300 hover:bg-zinc-900 hover:text-amber-200 border border-amber-500/70 rounded-full shadow-2xl text-xs font-bold font-sans cursor-pointer transition-transform hover:scale-105 active:scale-95 backdrop-blur-xs"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-950/95 text-amber-300 hover:bg-zinc-900 hover:text-amber-200 border border-amber-500/70 rounded-full shadow-2xl text-xs font-bold font-sans cursor-pointer transition-transform hover:scale-105 active:scale-95 backdrop-blur-xs"
             title="點擊複製已選取的經文字句"
           >
             {copiedSuccessToast ? (
