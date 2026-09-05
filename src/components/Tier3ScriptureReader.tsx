@@ -1368,11 +1368,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
   // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕)
   const renderChapterNavBar = (idSuffix: string = 'top') => (
-    <div className="flex items-center gap-1.5" id={`chapter-nav-${idSuffix}`}>
+    <div className="flex items-center gap-1.5 scroll-mt-48" id={`chapter-nav-${idSuffix}`}>
       <button
         onClick={handlePrevChapter}
         disabled={viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0}
-        className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
+        className={`px-2.5 py-1 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all ${
           viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0
             ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
             : 'bg-amber-50/80 border-amber-300/80 text-amber-900 hover:bg-amber-100 hover:border-amber-400 cursor-pointer shadow-xs'
@@ -1385,11 +1385,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
       {/* Chapter Navigation Pill with Direct Input Support */}
       <div
-        className="flex items-center text-xs font-mono font-bold px-2 py-0.5 bg-amber-50/90 hover:bg-amber-100/90 border border-amber-300/80 hover:border-amber-400 rounded-lg text-amber-900 transition-all shadow-xs"
+        className="flex items-center text-xs font-mono font-bold px-1.5 py-0.5 sm:px-2 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs focus-within:ring-2 focus-within:ring-amber-500 focus-within:border-amber-600 focus-within:bg-white"
         title={`可直接點擊或輸入想朗讀的${chapterUnit} (1~${selectedBook.chaptersCount})`}
       >
         <input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={1}
           max={selectedBook.chaptersCount}
           value={chapterInputText}
@@ -1397,7 +1399,22 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           onClick={(e) => (e.target as HTMLInputElement).select()}
           onFocus={(e) => {
             setIsChapterInputFocused(true);
-            e.target.select();
+            const target = e.target as HTMLInputElement;
+            target.select();
+            // Ensure the chapter input is scrolled safely below the sticky header and playbar
+            const scrollIntoSafeView = () => {
+              const rect = target.getBoundingClientRect();
+              const playbar = document.getElementById('tier3-playbar');
+              const playbarBottom = playbar ? playbar.getBoundingClientRect().bottom : 140;
+              if (rect.top < playbarBottom + 20) {
+                const scrollOffset = rect.top - (playbarBottom + 24);
+                window.scrollBy({ top: scrollOffset, behavior: 'smooth' });
+              } else {
+                target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+              }
+            };
+            setTimeout(scrollIntoSafeView, 50);
+            setTimeout(scrollIntoSafeView, 280);
           }}
           onBlur={() => {
             setIsChapterInputFocused(false);
@@ -1422,11 +1439,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               (e.target as HTMLInputElement).blur();
             }
           }}
-          className="w-10 text-center bg-white hover:bg-amber-50/50 focus:bg-white text-amber-900 font-bold font-mono px-1 py-0.5 rounded border border-amber-300 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-400/60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text"
+          className="w-14 sm:w-11 h-8 sm:h-6 text-center bg-white hover:bg-amber-50/50 focus:bg-white text-amber-950 font-bold font-mono text-[16px] sm:text-xs px-1 py-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/70 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text shadow-inner"
           title={`輸入欲朗讀的${chapterUnit}數，按 Enter 立即跳轉`}
         />
-        <span className="text-amber-600/70 px-1 font-sans">/</span>
-        <span className="text-amber-800 pr-1">
+        <span className="text-amber-700/80 px-1 font-sans text-xs">/</span>
+        <span className="text-amber-900 pr-1 text-xs whitespace-nowrap">
           {selectedBook.chaptersCount} {chapterUnit}
         </span>
       </div>
@@ -1516,7 +1533,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       />
 
       {/* Main Reading Playbar */}
-      <div className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-1.5 sm:space-y-2">
+      <div
+        id="tier3-playbar"
+        className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-1.5 sm:space-y-2"
+      >
         <div className="flex items-center justify-between gap-2 w-full">
           {/* Left Playback Control Buttons (手機上 4 個按鈕固定排成同一列) */}
           <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-2 w-full sm:w-auto">

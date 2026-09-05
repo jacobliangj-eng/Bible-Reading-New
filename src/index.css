@@ -248,3 +248,13 @@ body.night-mode .verse-red-letter::selection {
   touch-action: auto !important;
 }
 
+/* Prevent mobile browser (iOS Safari / Chrome) auto-zoom on input focus */
+@media screen and (max-width: 768px) {
+  input[type="number"],
+  input[type="text"],
+  input[type="search"] {
+    font-size: 16px !important;
+  }
+}
+
+
