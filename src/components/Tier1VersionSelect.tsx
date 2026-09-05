@@ -52,10 +52,16 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
 
     window.addEventListener('focus', refreshData);
     document.addEventListener('visibilitychange', refreshData);
+    window.addEventListener('storage', refreshData);
+    window.addEventListener('bible_bookmarks_updated', refreshData);
+    window.addEventListener('bible_last_read_updated', refreshData);
 
     return () => {
       window.removeEventListener('focus', refreshData);
       document.removeEventListener('visibilitychange', refreshData);
+      window.removeEventListener('storage', refreshData);
+      window.removeEventListener('bible_bookmarks_updated', refreshData);
+      window.removeEventListener('bible_last_read_updated', refreshData);
     };
   }, []);
 

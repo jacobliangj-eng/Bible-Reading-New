@@ -53,7 +53,16 @@ const verseCache = new Map<string, Verse[]>();
 // Cache key version prefix to invalidate any stale un-colored local storage on mobile/desktop
 const CACHE_VERSION = 'bible_v16_';
 
-// Auto-clean old legacy un-colored caches on module load
+// Persistent user keys that must NEVER be cleaned or removed during cache invalidation
+const RESERVED_PERSISTENT_PREFIXES = [
+  'bible_app_',
+  'bible_speech_',
+  'bible_font_',
+  'bible_night_',
+  'bible_bookmarks_',
+];
+
+// Auto-clean old legacy un-colored scripture caches on module load
 if (typeof window !== 'undefined' && window.localStorage) {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -61,7 +70,9 @@ if (typeof window !== 'undefined' && window.localStorage) {
       if (
         key &&
         !key.startsWith(CACHE_VERSION) &&
-        (key.startsWith('bible_') ||
+        !RESERVED_PERSISTENT_PREFIXES.some((prefix) => key.startsWith(prefix)) &&
+        (key.startsWith('bible_v') ||
+          key.startsWith('bible_cache_') ||
           key.startsWith('CUV_') ||
           key.startsWith('KJV_') ||
           key.startsWith('LSG_') ||
