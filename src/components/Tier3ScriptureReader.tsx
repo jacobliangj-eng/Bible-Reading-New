@@ -784,6 +784,36 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   }, [viewChapter, isChapterInputFocused]);
 
+  // Smooth scroll to top of scripture white box for both desktop and mobile
+  const scrollToScriptureTop = useCallback(() => {
+    requestAnimationFrame(() => {
+      const container = document.getElementById('scripture-container');
+      const playbar = document.getElementById('tier3-playbar');
+      if (container) {
+        const playbarRect = playbar ? playbar.getBoundingClientRect() : null;
+        // Sticky header is 48px, playbar sits right below it
+        const playbarHeight = playbarRect ? playbarRect.height : 90;
+        const stickyOffset = 48 + playbarHeight + 8;
+        const containerTop = container.getBoundingClientRect().top + window.pageYOffset;
+        const targetScrollY = Math.max(0, containerTop - stickyOffset);
+        window.scrollTo({
+          top: targetScrollY,
+          behavior: 'smooth',
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  }, []);
+
+  // When switching book or chapter, ensure page smoothly scrolls so that scripture container and verse 1 are at top (Desktop & Mobile)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToScriptureTop();
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [selectedBook.id, viewChapter, scrollToScriptureTop]);
+
   const handleJumpToChapter = (chapterNum: number) => {
     const clamped = Math.max(1, Math.min(chapterNum, selectedBook.chaptersCount));
     if (synthRef.current) {
@@ -800,7 +830,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     setEndChapter(selectedBook.chaptersCount);
     setAudioCurrentTime(0);
     setChapterInputText(String(clamped));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToScriptureTop();
   };
 
   const handlePrevChapter = () => {
@@ -817,7 +847,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       setViewChapter(prevCh);
       setTargetChapter(prevCh);
       setChapterInputText(String(prevCh));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToScriptureTop();
     } else if (viewChapter === 1) {
       const currentBookIndex = BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id);
       if (currentBookIndex > 0) {
@@ -847,7 +877,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       setViewChapter(nextCh);
       setTargetChapter(nextCh);
       setChapterInputText(String(nextCh));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollToScriptureTop();
     } else if (viewChapter >= selectedBook.chaptersCount) {
       const currentBookIndex = BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id);
       if (currentBookIndex >= 0 && currentBookIndex < BIBLE_BOOKS.length - 1) {
@@ -1388,7 +1418,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return 'text-lg md:text-xl leading-[1.3]';
   };
 
-  // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕)
+  // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕 - 確保同一列不可分行)
   const renderChapterNavBar = (idSuffix: string = 'top') => {
     const handleConfirmJump = () => {
       const parsed = parseInt(chapterInputText, 10);
@@ -1403,31 +1433,41 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
 
     return (
-      <div className="flex items-center gap-1 sm:gap-1.5 scroll-mt-48 flex-wrap justify-end" id={`chapter-nav-${idSuffix}`}>
+      <div
+        className="inline-flex items-center justify-center sm:justify-end gap-1 sm:gap-1.5 scroll-mt-48 flex-nowrap shrink-0 whitespace-nowrap select-none"
+        id={`chapter-nav-${idSuffix}`}
+      >
+        {/* 上一章按鈕 */}
         <button
+          type="button"
           onClick={handlePrevChapter}
           disabled={viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0}
-          className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 ${
+          className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 whitespace-nowrap ${
             viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0
               ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
               : 'bg-amber-50/80 border-amber-300/80 text-amber-900 hover:bg-amber-100 hover:border-amber-400 cursor-pointer shadow-xs active:scale-95'
           }`}
           title={`上一${chapterUnit} (向右滑動)`}
         >
-          <ChevronLeft className="w-3.5 h-3.5 text-amber-700" />
-          <span>上一{chapterUnit}</span>
+          <ChevronLeft className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+          <span className="whitespace-nowrap">上一{chapterUnit}</span>
         </button>
 
-        {/* Chapter Navigation Pill with Direct Input Support & Dedicated Go Button */}
-        <div
-          className="flex items-center text-xs font-mono font-bold px-1.5 py-0.5 sm:px-2 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs focus-within:ring-2 focus-within:ring-amber-500 focus-within:border-amber-600 focus-within:bg-white shrink-0"
+        {/* Chapter Navigation Form Pill: input + / + 總章數 + 前往按鈕 (Form讓手機數字鍵盤直接顯示 Enter / 前往鍵) */}
+        <form
+          action="#"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleConfirmJump();
+          }}
+          className="flex items-center text-xs font-mono font-bold px-1 sm:px-1.5 py-0.5 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs focus-within:ring-2 focus-within:ring-amber-500 focus-within:border-amber-600 focus-within:bg-white shrink-0 whitespace-nowrap"
           title={`可直接點擊或輸入想朗讀的${chapterUnit} (1~${selectedBook.chaptersCount})`}
         >
           <input
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            enterKeyHint="go"
+            enterKeyHint="enter"
             value={chapterInputText}
             onChange={(e) => {
               const val = e.target.value.replace(/[^0-9]/g, '');
@@ -1438,20 +1478,6 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               setIsChapterInputFocused(true);
               const target = e.target as HTMLInputElement;
               target.select();
-              // Ensure the chapter input is scrolled safely below the sticky header and playbar
-              const scrollIntoSafeView = () => {
-                const rect = target.getBoundingClientRect();
-                const playbar = document.getElementById('tier3-playbar');
-                const playbarBottom = playbar ? playbar.getBoundingClientRect().bottom : 140;
-                if (rect.top < playbarBottom + 20) {
-                  const scrollOffset = rect.top - (playbarBottom + 24);
-                  window.scrollBy({ top: scrollOffset, behavior: 'smooth' });
-                } else {
-                  target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                }
-              };
-              setTimeout(scrollIntoSafeView, 50);
-              setTimeout(scrollIntoSafeView, 280);
             }}
             onBlur={() => {
               setIsChapterInputFocused(false);
@@ -1468,33 +1494,34 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            className="w-12 sm:w-11 h-7 sm:h-6 text-center bg-white hover:bg-amber-50/50 focus:bg-white text-amber-950 font-bold font-mono text-[16px] sm:text-xs px-1 py-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/70 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text shadow-inner"
-            title={`輸入欲朗讀的${chapterUnit}數，點擊「前往」或按 Enter 立即跳轉`}
+            className="w-10 sm:w-11 h-7 sm:h-6 text-center bg-white hover:bg-amber-50/50 focus:bg-white text-amber-950 font-bold font-mono text-[16px] sm:text-xs px-0.5 py-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/70 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text shadow-inner shrink-0"
+            title={`輸入欲朗讀的${chapterUnit}數，按鍵盤 Enter 或點擊「前往」立即跳轉`}
           />
-          <span className="text-amber-700/80 px-1 font-sans text-xs">/</span>
-          <span className="text-amber-900 pr-1 text-xs whitespace-nowrap">
+          <span className="text-amber-700/80 px-0.5 font-sans text-xs shrink-0">/</span>
+          <span className="text-amber-900 pr-0.5 text-xs whitespace-nowrap shrink-0">
             {selectedBook.chaptersCount} {chapterUnit}
           </span>
 
-          {/* Dedicated "前往" button for mobile numeric keyboards without Enter */}
+          {/* Dedicated "前往" action button on the same line */}
           <button
-            type="button"
+            type="submit"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={handleConfirmJump}
-            className="ml-0.5 px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-zinc-950 font-bold text-xs shadow-xs border border-amber-500/70 cursor-pointer whitespace-nowrap active:scale-95 transition-all flex items-center justify-center"
+            className="ml-0.5 px-1.5 sm:px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-zinc-950 font-bold text-xs shadow-xs border border-amber-500/70 cursor-pointer whitespace-nowrap active:scale-95 transition-all shrink-0 flex items-center justify-center"
             title="前往指定章節"
           >
             前往
           </button>
-        </div>
+        </form>
 
+        {/* 下一章按鈕 */}
         <button
+          type="button"
           onClick={handleNextChapter}
           disabled={
             viewChapter >= selectedBook.chaptersCount &&
             BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
           }
-          className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 ${
+          className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 whitespace-nowrap ${
             viewChapter >= selectedBook.chaptersCount &&
             BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
               ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
@@ -1502,27 +1529,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           }`}
           title={`下一${chapterUnit} (向左滑動)`}
         >
-          <span>下一{chapterUnit}</span>
-          <ChevronRight className="w-3.5 h-3.5 text-amber-700" />
+          <span className="whitespace-nowrap">下一{chapterUnit}</span>
+          <ChevronRight className="w-3.5 h-3.5 text-amber-700 shrink-0" />
         </button>
-
-        {/* Bookmark specified verses compact indicator */}
-        {customVerseNumbers && customVerseNumbers.length > 0 && (
-          <div className="flex items-center gap-1.5 ml-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-lg text-amber-900 shadow-xs shrink-0">
-            <span className="font-bold">指定：第 {customVerseNumbers.join(', ')} 節</span>
-            <button
-              type="button"
-              onClick={() => {
-                setCustomVerseNumbers(undefined);
-                setReadingMode('CHAPTERS');
-              }}
-              className="text-[11px] underline text-amber-800 hover:text-amber-950 font-bold ml-1 cursor-pointer"
-              title="切換回整章閱讀"
-            >
-              顯示全章
-            </button>
-          </div>
-        )}
       </div>
     );
   };
@@ -1692,9 +1701,30 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center justify-center sm:justify-end pb-2.5 border-b border-amber-100">
-          {/* Chapter Navigation Bar (Top) */}
-          {renderChapterNavBar('top')}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5 pb-2.5 border-b border-amber-100 flex-nowrap">
+          {customVerseNumbers && customVerseNumbers.length > 0 ? (
+            <div className="flex items-center gap-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-lg text-amber-900 shadow-xs shrink-0 whitespace-nowrap mr-auto">
+              <span className="font-bold text-[11px] sm:text-xs">指定：第 {customVerseNumbers.join(', ')} 節</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomVerseNumbers(undefined);
+                  setReadingMode('CHAPTERS');
+                }}
+                className="text-[11px] underline text-amber-800 hover:text-amber-950 font-bold cursor-pointer ml-1"
+                title="切換回整章閱讀"
+              >
+                顯示全章
+              </button>
+            </div>
+          ) : (
+            <div className="hidden sm:block" />
+          )}
+
+          <div className="flex items-center justify-center sm:justify-end flex-nowrap shrink-0 w-full sm:w-auto">
+            {/* Chapter Navigation Bar (Top) */}
+            {renderChapterNavBar('top')}
+          </div>
         </div>
 
         {isLoadingVerses && activeVerses.length === 0 ? (
@@ -1839,8 +1869,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           </div>
         )}
 
-        {/* Bottom Chapter Navigation Bar (每章最尾端的右邊，始終顯示) */}
-        <div className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4">
+        {/* Bottom Chapter Navigation Bar (每章最尾端的右邊，始終顯示在同一列) */}
+        <div className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap">
           {renderChapterNavBar('bottom')}
         </div>
       </div>
