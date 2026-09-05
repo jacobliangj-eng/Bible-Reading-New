@@ -814,6 +814,64 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return () => clearTimeout(timer);
   }, [selectedBook.id, viewChapter, scrollToScriptureTop]);
 
+  // 智慧視窗平移定位 (Auto Safe Scroll)：
+  // 在章節輸入框聚焦 (Focus) 時，系統會自動偵測上方固定控制列（開始、單次、加書籤、複製及時間軸）的底部高度，
+  // 平滑將輸入框捲動至控制列下方安全可見區，完全不再被播放條遮擋。
+  const autoScrollInputToSafePosition = useCallback((targetInput: HTMLElement) => {
+    const performSafeScroll = () => {
+      const playbar = document.getElementById('tier3-playbar');
+      // 偵測上方固定控制列與時間軸的目前底部高度位置 (playbar.getBoundingClientRect().bottom)
+      const playbarBottom = playbar ? playbar.getBoundingClientRect().bottom : 130;
+      const inputRect = targetInput.getBoundingClientRect();
+
+      // 安全間隔（在控制列與時間軸下方保留 24px 呼吸安全區）
+      const safeClearance = 24;
+      const desiredTop = playbarBottom + safeClearance;
+
+      // 如果輸入框頂部被上方控制列或時間軸遮蓋 (inputRect.top < playbarBottom + 16)，
+      // 或是因為手機鍵盤彈出導致輸入框太靠近播放條 (inputRect.top < desiredTop)，
+      // 立即進行平滑捲動，將輸入框置於控制列下方的安全可見區
+      if (inputRect.top < desiredTop) {
+        const deltaY = inputRect.top - desiredTop;
+        window.scrollBy({
+          top: deltaY,
+          behavior: 'smooth',
+        });
+      }
+    };
+
+    // 多階段延遲執行：
+    // 手機點擊輸入框時，虛擬鍵盤彈出過程通常耗時 200~400ms，並會觸發瀏覽器預設捲動。
+    // 分別在立即、80ms、200ms、380ms、550ms 進行智慧平移補償，確保鍵盤開啟完畢後輸入框依然百分之百清晰可見。
+    requestAnimationFrame(performSafeScroll);
+    setTimeout(performSafeScroll, 80);
+    setTimeout(performSafeScroll, 200);
+    setTimeout(performSafeScroll, 380);
+    setTimeout(performSafeScroll, 550);
+  }, []);
+
+  // 監聽 Visual Viewport 視窗縮放/滾動（針對 iOS/Android 虛擬鍵盤彈出收合）
+  useEffect(() => {
+    if (!isChapterInputFocused) return;
+
+    const handleViewportChange = () => {
+      const activeEl = document.activeElement;
+      if (activeEl instanceof HTMLInputElement && activeEl.dataset.chapterInput === 'true') {
+        autoScrollInputToSafePosition(activeEl);
+      }
+    };
+
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', handleViewportChange);
+      vv.addEventListener('scroll', handleViewportChange);
+      return () => {
+        vv.removeEventListener('resize', handleViewportChange);
+        vv.removeEventListener('scroll', handleViewportChange);
+      };
+    }
+  }, [isChapterInputFocused, autoScrollInputToSafePosition]);
+
   const handleJumpToChapter = (chapterNum: number) => {
     const clamped = Math.max(1, Math.min(chapterNum, selectedBook.chaptersCount));
     if (synthRef.current) {
@@ -1465,6 +1523,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         >
           <input
             type="text"
+            data-chapter-input="true"
             inputMode="numeric"
             pattern="[0-9]*"
             enterKeyHint="enter"
@@ -1473,11 +1532,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               const val = e.target.value.replace(/[^0-9]/g, '');
               setChapterInputText(val);
             }}
-            onClick={(e) => (e.target as HTMLInputElement).select()}
+            onClick={(e) => {
+              const target = e.target as HTMLInputElement;
+              target.select();
+              autoScrollInputToSafePosition(target);
+            }}
             onFocus={(e) => {
               setIsChapterInputFocused(true);
               const target = e.target as HTMLInputElement;
               target.select();
+              autoScrollInputToSafePosition(target);
             }}
             onBlur={() => {
               setIsChapterInputFocused(false);
