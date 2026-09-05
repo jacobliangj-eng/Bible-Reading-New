@@ -596,18 +596,29 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     };
   }, [targetChapter, selectedBook.id, bookName, selectedVersion, initialChapter, initialStartVerse, initialEndVerse]);
 
-  // Auto-scroll active verse or top verse into view
+  // 朗讀播放時自動捲動當前節經文至安全可見視野
+  // 關鍵：非播放狀態（如選擇新經卷、切換章節）絕不調用 scrollIntoView，避免將第 1 節或頂部導航推入控制列下方被遮擋！
   useEffect(() => {
-    if (activeVerses.length > 0) {
-      const targetEl = verseRefs.current[currentVerseIndex] || verseRefs.current[0];
+    if (isPlaying && activeVerses.length > 0) {
+      const targetEl = verseRefs.current[currentVerseIndex];
       if (targetEl) {
-        targetEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-        });
+        const playbar = document.getElementById('tier3-playbar');
+        const playbarBottom = playbar ? playbar.getBoundingClientRect().bottom : 150;
+        const rect = targetEl.getBoundingClientRect();
+
+        // 若當前朗讀經文被上方固定播放列遮擋
+        if (rect.top < playbarBottom + 16) {
+          const deltaY = rect.top - (playbarBottom + 24);
+          window.scrollBy({ top: deltaY, behavior: 'smooth' });
+        }
+        // 若當前朗讀經文超出螢幕下方
+        else if (rect.bottom > window.innerHeight - 36) {
+          const deltaY = rect.bottom - (window.innerHeight - 48);
+          window.scrollBy({ top: deltaY, behavior: 'smooth' });
+        }
       }
     }
-  }, [currentVerseIndex, viewChapter, activeVerses.length]);
+  }, [currentVerseIndex, isPlaying, activeVerses.length]);
 
   // Fetch Verses for the single current viewChapter asynchronously
   useEffect(() => {
@@ -784,34 +795,18 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   }, [viewChapter, isChapterInputFocused]);
 
-  // Smooth scroll to top of scripture white box for both desktop and mobile
+  // 平滑捲動至頂端：當切換上一章、下一章、直接輸入跳轉或切換新經卷時，
+  // 頁面永遠回到最頂端 (top: 0)，上方固定控制列穩固停在 header 下方特定高度，經文白底區域與第 1 節絕不被遮擋。
   const scrollToScriptureTop = useCallback(() => {
-    requestAnimationFrame(() => {
-      const container = document.getElementById('scripture-container');
-      const playbar = document.getElementById('tier3-playbar');
-      if (container) {
-        const playbarRect = playbar ? playbar.getBoundingClientRect() : null;
-        // Sticky header is 48px, playbar sits right below it
-        const playbarHeight = playbarRect ? playbarRect.height : 90;
-        const stickyOffset = 48 + playbarHeight + 8;
-        const containerTop = container.getBoundingClientRect().top + window.pageYOffset;
-        const targetScrollY = Math.max(0, containerTop - stickyOffset);
-        window.scrollTo({
-          top: targetScrollY,
-          behavior: 'smooth',
-        });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
     });
   }, []);
 
   // When switching book or chapter, ensure page smoothly scrolls so that scripture container and verse 1 are at top (Desktop & Mobile)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToScriptureTop();
-    }, 80);
-    return () => clearTimeout(timer);
+    scrollToScriptureTop();
   }, [selectedBook.id, viewChapter, scrollToScriptureTop]);
 
   // 智慧視窗平移定位 (Auto Safe Scroll)：
@@ -1601,7 +1596,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 py-2 md:py-3 space-y-2 sm:space-y-2.5">
+    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 pt-0 pb-4 space-y-2 sm:space-y-2.5">
       {/* Hidden Audio Element for FHL MP3 Playback */}
       <audio
         ref={audioRef}
@@ -1649,7 +1644,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       {/* Main Reading Playbar */}
       <div
         id="tier3-playbar"
-        className="sticky top-12 z-30 bg-black/95 border border-yellow-500/50 p-2 sm:p-2.5 rounded-lg sm:rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-1.5 sm:space-y-2"
+        className="sticky top-12 z-30 bg-black/95 border-b border-x border-t-0 border-yellow-500/50 p-2 sm:p-2.5 rounded-b-xl sm:rounded-b-2xl shadow-[0_10px_25px_rgba(0,0,0,0.9)] backdrop-blur-lg space-y-1.5 sm:space-y-2"
       >
         <div className="flex items-center justify-between gap-2 w-full">
           {/* Left Playback Control Buttons (手機上 4 個按鈕固定排成同一列) */}
@@ -1761,7 +1756,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       {/* Scripture Verses Display List with Swipe Gesture Support */}
       <div
         id="scripture-container"
-        className="bg-white text-zinc-900 border-2 border-amber-300/80 shadow-2xl px-1.5 py-2.5 sm:px-2.5 sm:py-3 md:px-3.5 md:py-4 rounded-xl sm:rounded-2xl min-h-[350px] space-y-2 sm:space-y-2.5 touch-pan-y"
+        className="bg-white text-zinc-900 border-2 border-amber-300/80 shadow-2xl px-1.5 py-2.5 sm:px-2.5 sm:py-3 md:px-3.5 md:py-4 rounded-xl sm:rounded-2xl min-h-[350px] space-y-2 sm:space-y-2.5 touch-pan-y scroll-mt-48"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >

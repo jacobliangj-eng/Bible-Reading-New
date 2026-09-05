@@ -25,8 +25,8 @@ export const Header: React.FC<HeaderProps> = ({
   const versionInfo = VERSIONS[selectedVersion];
 
   return (
-    <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-yellow-600/30 px-4 py-2 shadow-md shadow-black/80">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+    <header className="sticky top-0 z-40 h-12 flex items-center bg-black/90 backdrop-blur-md border-b border-yellow-600/30 px-3 sm:px-4 shadow-md shadow-black/80">
+      <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2">
         {/* Logo & Brand Title */}
         <div className="flex items-center gap-2 select-none">
           {/* 旋轉 ICON: 點擊回到 TIER1 */}
