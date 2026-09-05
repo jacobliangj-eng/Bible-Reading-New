@@ -638,10 +638,28 @@ export async function fetchChapterVerses(
   }
 
   const fetchPromise = (async () => {
+    // 1. Check memory cache first for immediate zero-delay display
+    if (verseCache.has(cacheKey)) {
+      return verseCache.get(cacheKey)!;
+    }
+
+    try {
+      const stored = localStorage.getItem(`${CACHE_VERSION}${cacheKey}`);
+      if (stored) {
+        const parsed: Verse[] = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          verseCache.set(cacheKey, parsed);
+          return parsed;
+        }
+      }
+    } catch {
+      // Ignore localStorage read errors
+    }
+
     let verses: Verse[] | null = null;
     let isFromBibleTool = false;
 
-    // 1. For CUV (國語和合本), ALWAYS IMMEDIATELY download from 耶大雅聖經工具 (https://bibletool.konline.org/browse/#UCV)
+    // 2. For CUV (國語和合本), download from 耶大雅聖經工具 (https://bibletool.konline.org/browse/#UCV)
     if (version === 'CUV') {
       try {
         verses = await fetchFromBibleTool(bookId, chapter);
@@ -650,23 +668,6 @@ export async function fetchChapterVerses(
         }
       } catch (btErr) {
         console.warn(`[BibleService] Immediate download from BibleTool encountered error:`, btErr);
-      }
-    } else {
-      // For non-CUV (KJV/LSG), check memory and local cache
-      if (verseCache.has(cacheKey)) {
-        return verseCache.get(cacheKey)!;
-      }
-      try {
-        const stored = localStorage.getItem(`${CACHE_VERSION}${cacheKey}`);
-        if (stored) {
-          const parsed: Verse[] = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            verseCache.set(cacheKey, parsed);
-            return parsed;
-          }
-        }
-      } catch {
-        // Ignore localStorage errors
       }
     }
 
