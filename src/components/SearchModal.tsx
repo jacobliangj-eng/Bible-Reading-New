@@ -385,10 +385,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         </div>
 
         {/* 查詢結果清單區 (依附件4格式排列) */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-2 space-y-2 bg-[#fcf8e3]">
+        <div className="flex-1 overflow-y-auto px-3.5 py-1.5 space-y-1.5 bg-[#fcf8e3]">
           {/* 總條數標題: 共搜索到相關經文 X 條 */}
           {hasSearched && (
-            <div className="font-bold text-stone-900 text-sm sm:text-base pt-0.5 pb-1">
+            <div className="font-bold text-stone-900 text-sm sm:text-base pt-0.5 pb-0.5">
               {isSearching ? (
                 <span className="flex items-center gap-1.5 text-stone-600">
                   <Loader2 className="w-4 h-4 animate-spin text-[#6d4c41]" />
@@ -421,7 +421,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   id={`search-result-item-${item.id}`}
                   onClick={() => setSelectedResultId(item.id)}
                   onDoubleClick={() => handleJump(item)}
-                  className={`text-[16px] sm:text-[16px] leading-relaxed cursor-pointer select-none transition-colors py-1.5 px-1.5 rounded-sm touch-manipulation ${
+                  className={`text-[18px] sm:text-[18px] leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
                     isSelected
                       ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
                       : 'hover:bg-amber-100/30'
