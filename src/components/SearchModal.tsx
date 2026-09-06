@@ -421,7 +421,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   id={`search-result-item-${item.id}`}
                   onClick={() => setSelectedResultId(item.id)}
                   onDoubleClick={() => handleJump(item)}
-                  className={`text-sm sm:text-[15px] leading-relaxed cursor-pointer select-none transition-colors py-1.5 px-1.5 rounded-sm touch-manipulation ${
+                  className={`text-[16px] sm:text-[16px] leading-relaxed cursor-pointer select-none transition-colors py-1.5 px-1.5 rounded-sm touch-manipulation ${
                     isSelected
                       ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
                       : 'hover:bg-amber-100/30'
