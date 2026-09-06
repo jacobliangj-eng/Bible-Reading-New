@@ -124,6 +124,39 @@ async function startServer() {
       }
 
       const data = await response.json();
+
+      // If records > 500, FHL returns { status: "Fail: record count > 500", record_count: 1524 }
+      // We automatically fetch all pages in parallel chunks of 500 (e.g. 耶穌 1524 條, 大衛 985 條)
+      if (data.status !== 'success' && data.record_count && data.record_count > 0) {
+        const total = Math.min(data.record_count, 3000);
+        const chunkPromises: Promise<any>[] = [];
+        for (let offset = 0; offset < total; offset += 500) {
+          const chunkUrl = `${targetUrl}&limit=500&offset=${offset}`;
+          chunkPromises.push(
+            fetch(chunkUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+              },
+            })
+              .then((r) => r.json())
+              .catch(() => null)
+          );
+        }
+
+        const chunkResults = await Promise.all(chunkPromises);
+        const allRecords: any[] = [];
+        for (const chunk of chunkResults) {
+          if (chunk && Array.isArray(chunk.record)) {
+            allRecords.push(...chunk.record);
+          }
+        }
+
+        data.status = 'success';
+        data.record = allRecords;
+        data.record_count = allRecords.length;
+      }
+
       // Normalize God terms in records: '上帝' -> '　神'
       if (Array.isArray(data.record)) {
         data.record = data.record.map((item: any) => ({

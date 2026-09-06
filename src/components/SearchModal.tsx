@@ -4,6 +4,7 @@ import {
   Loader2,
   CheckCircle2,
   Search,
+  X,
 } from 'lucide-react';
 import { BibleBook, BibleVersion } from '../types';
 import { searchBibleVerses, SearchVerseItem } from '../services/bibleService';
@@ -28,6 +29,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const [searchedQuery, setSearchedQuery] = useState<string>('');
   const [selectedResultId, setSelectedResultId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState<boolean>(false);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,6 +80,19 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     } finally {
       setIsSearching(false);
     }
+  };
+
+  // Clear search query
+  const handleClearQuery = () => {
+    setQuery('');
+    setResults([]);
+    setHasSearched(false);
+    setIsSearching(false);
+    setSelectedResultId(null);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    inputRef.current?.focus();
   };
 
   // Debounced auto-search when query changes
@@ -331,6 +346,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 autoCorrect="off"
                 spellCheck={false}
                 value={query}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
                 onChange={(e) => handleQueryChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -344,8 +361,26 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   handleQueryChange(val);
                 }}
                 placeholder="輸入字詞（例如：烏鴉 或 耶穌 世人）"
-                className="w-full pl-2.5 pr-8 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
+                className="w-full pl-2.5 pr-14 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
               />
+
+              {/* 清除文字 X 按鈕（有文字且游標按下聚焦時顯示） */}
+              {query.length > 0 && isFocused && (
+                <button
+                  type="button"
+                  id="search-input-clear-btn"
+                  onMouseDown={(e) => {
+                    // 防止游標離開輸入框造成失焦
+                    e.preventDefault();
+                  }}
+                  onClick={handleClearQuery}
+                  className="p-1 mr-0.5 text-stone-400 hover:text-stone-700 active:text-stone-900 hover:bg-stone-200/70 rounded-full transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                  title="清除輸入文字"
+                  aria-label="清除輸入文字"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               {/* 手機/電腦即點搜尋按鈕（小放大鏡圖示，點擊立即執行） */}
               <button
@@ -402,7 +437,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 id={`search-result-item-${item.id}`}
                 onClick={() => setSelectedResultId(item.id)}
                 onDoubleClick={() => handleJump(item)}
-                className={`text-[17px] sm:text-[17px] leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
+                className={`text-[18px] sm:text-[18px] leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
                   isSelected
                     ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
                     : 'hover:bg-amber-100/30'

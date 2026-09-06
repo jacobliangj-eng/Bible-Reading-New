@@ -835,37 +835,66 @@ export async function searchBibleVerses(
   try {
     let data: any = null;
 
-    // 1. Direct fetch to bible.fhl.net (supports CORS for all origins, ensuring full mobile compatibility)
+    // 1. First try the local proxy (fast, cached, handles > 500 chunking, and normalizes '上帝' -> '　神')
     try {
-      const directUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=${versionCode}`;
-      const directRes = await fetch(directUrl, {
-        headers: {
-          Accept: 'application/json, text/plain, */*',
-        },
-      });
-      if (directRes.ok) {
-        const text = await directRes.text();
+      const proxyUrl = `/api/bible/search?q=${encodeURIComponent(cleanQ)}&version=${encodeURIComponent(version)}`;
+      const proxyRes = await fetch(proxyUrl);
+      if (proxyRes.ok) {
+        const text = await proxyRes.text();
         if (text.startsWith('{') || text.startsWith('[')) {
-          data = JSON.parse(text);
-        }
-      }
-    } catch (directErr) {
-      console.warn('[searchBibleVerses] Direct fetch failed or restricted, trying proxy fallback:', directErr);
-    }
-
-    // 2. Fallback to local server proxy if direct fetch did not yield records
-    if (!data || !Array.isArray(data.record)) {
-      try {
-        const proxyUrl = `/api/bible/search?q=${encodeURIComponent(cleanQ)}&version=${encodeURIComponent(version)}`;
-        const proxyRes = await fetch(proxyUrl);
-        if (proxyRes.ok) {
-          const text = await proxyRes.text();
-          if (text.startsWith('{') || text.startsWith('[')) {
-            data = JSON.parse(text);
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed.record)) {
+            data = parsed;
           }
         }
-      } catch (proxyErr) {
-        console.warn('[searchBibleVerses] Proxy fetch failed:', proxyErr);
+      }
+    } catch (proxyErr) {
+      console.warn('[searchBibleVerses] Proxy fetch failed, trying direct:', proxyErr);
+    }
+
+    // 2. Direct fetch fallback to bible.fhl.net
+    if (!data || !Array.isArray(data.record)) {
+      try {
+        const directUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=${versionCode}`;
+        const directRes = await fetch(directUrl, {
+          headers: {
+            Accept: 'application/json, text/plain, */*',
+          },
+        });
+        if (directRes.ok) {
+          const text = await directRes.text();
+          if (text.startsWith('{') || text.startsWith('[')) {
+            const parsed = JSON.parse(text);
+            if (parsed.status === 'success' && Array.isArray(parsed.record)) {
+              data = parsed;
+            } else if (parsed.record_count && parsed.record_count > 0) {
+              // FHL returns 'Fail: record count > 500' when > 500 results, fetch in parallel chunks
+              const total = Math.min(parsed.record_count, 3000);
+              const chunkPromises: Promise<any>[] = [];
+              for (let offset = 0; offset < total; offset += 500) {
+                chunkPromises.push(
+                  fetch(`${directUrl}&limit=500&offset=${offset}`)
+                    .then((r) => r.json())
+                    .catch(() => null)
+                );
+              }
+              const chunkResults = await Promise.all(chunkPromises);
+              const allRecords: any[] = [];
+              for (const chunk of chunkResults) {
+                if (chunk && Array.isArray(chunk.record)) {
+                  allRecords.push(...chunk.record);
+                }
+              }
+              data = {
+                status: 'success',
+                record: allRecords,
+                record_count: allRecords.length,
+              };
+            }
+          }
+        }
+      } catch (directErr) {
+        console.warn('[searchBibleVerses] Direct fetch failed:', directErr);
       }
     }
 
