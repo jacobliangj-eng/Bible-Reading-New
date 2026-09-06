@@ -1,4 +1,5 @@
-import { BibleVersion, Verse, VerseSegment } from '../types';
+import { BibleBook, BibleVersion, Verse, VerseSegment } from '../types';
+import { BIBLE_BOOKS } from '../data/bibleBooks';
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 
 // Translation mapping for HelloAO API
@@ -791,4 +792,108 @@ export function getFhlChapterAudioUrls(bookNumber: number, chapter: number): {
     ogg: `https://media.fhl.net/unv1/${bookNumber}/${bookNumber}_${paddedChapter}.ogg`,
     pageUrl: `https://bible.fhl.net/new/listenhb.php?version=0&bid=${bookNumber}&chap=${chapter}`,
   };
+}
+
+export interface SearchVerseItem {
+  id: number;
+  book: BibleBook;
+  chapter: number;
+  verse: number;
+  text: string;
+  referenceStr: string;
+}
+
+const FHL_NAME_TO_BOOK_ID: Record<string, string> = {
+  '創': 'GEN', '出': 'EXO', '利': 'LEV', '民': 'NUM', '申': 'DEU', '書': 'JOS', '士': 'JDG', '得': 'RUT',
+  '撒上': '1SA', '撒下': '2SA', '王上': '1KI', '王下': '2KI', '代上': '1CH', '代下': '2CH',
+  '拉': 'EZR', '尼': 'NEH', '斯': 'EST', '帖': 'EST', '伯': 'JOB', '詩': 'PSA', '箴': 'PRO', '傳': 'ECC', '歌': 'SNG',
+  '賽': 'ISA', '耶': 'JER', '哀': 'LAM', '結': 'EZK', '但': 'DAN', '何': 'HOS', '珥': 'JOL', '摩': 'AMO',
+  '俄': 'OBA', '拿': 'JON', '彌': 'MIC', '鴻': 'NAH', '哈': 'HAB', '番': 'ZEP', '該': 'HAG', '亞': 'ZEC',
+  '瑪': 'MAL', '太': 'MAT', '可': 'MRK', '路': 'LUK', '約': 'JHN', '使': 'ACT', '羅': 'ROM', '林前': '1CO',
+  '林後': '2CO', '加': 'GAL', '弗': 'EPH', '腓': 'PHP', '西': 'COL', '帖前': '1TH', '帖後': '2TH',
+  '提前': '1TI', '提後': '2TI', '多': 'TIT', '門': 'PHM', '希': 'HEB', '雅': 'JAS', '彼前': '1PE',
+  '彼後': '2PE', '約一': '1JN', '約二': '2JN', '約三': '3JN', '猶': 'JUD', '啟': 'REV',
+};
+
+/**
+ * Searches the Bible for verses matching a multi-keyword query string (e.g. "耶穌    世人").
+ * Handles space separation, and returns mapped BibleBook, chapter, verse, and highlighted text.
+ */
+export async function searchBibleVerses(
+  query: string,
+  version: BibleVersion = 'CUV'
+): Promise<SearchVerseItem[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  try {
+    const url = `/api/bible/search?q=${encodeURIComponent(trimmed)}&version=${encodeURIComponent(version)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Search request failed with status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data || !Array.isArray(data.record)) {
+      return [];
+    }
+
+    const results: SearchVerseItem[] = [];
+
+    for (const item of data.record) {
+      const chineses = (item.chineses || '').trim();
+      const engs = (item.engs || '').trim();
+
+      // Find matching book
+      let bookId = FHL_NAME_TO_BOOK_ID[chineses];
+      if (!bookId && engs) {
+        const engLower = engs.toLowerCase();
+        const found = BIBLE_BOOKS.find(
+          (b) =>
+            b.id.toLowerCase() === engLower ||
+            b.name.KJV.toLowerCase().startsWith(engLower) ||
+            b.shortName.KJV.toLowerCase() === engLower
+        );
+        if (found) {
+          bookId = found.id;
+        }
+      }
+
+      if (!bookId && chineses) {
+        const found = BIBLE_BOOKS.find(
+          (b) =>
+            b.shortName.CUV === chineses ||
+            b.name.CUV === chineses ||
+            b.name.CUV.startsWith(chineses)
+        );
+        if (found) {
+          bookId = found.id;
+        }
+      }
+
+      const book = BIBLE_BOOKS.find((b) => b.id === bookId);
+      if (!book) continue;
+
+      const chap = Number(item.chap) || 1;
+      const sec = Number(item.sec) || 1;
+      const cleanText = (item.bible_text || '').trim();
+
+      const bookTitle = book.name[version] || book.name.CUV;
+      const referenceStr = `${bookTitle} ${chap}:${sec}`;
+
+      results.push({
+        id: item.id || results.length + 1,
+        book,
+        chapter: chap,
+        verse: sec,
+        text: cleanText,
+        referenceStr,
+      });
+    }
+
+    return results;
+  } catch (err) {
+    console.error('[searchBibleVerses Error]:', err);
+    return [];
+  }
 }

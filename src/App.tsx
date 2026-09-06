@@ -11,6 +11,7 @@ import { Tier1VersionSelect } from './components/Tier1VersionSelect';
 import { Tier2BookSelect } from './components/Tier2BookSelect';
 import { Tier3ScriptureReader } from './components/Tier3ScriptureReader';
 import { AudioSettingsModal } from './components/AudioSettingsModal';
+import { SearchModal } from './components/SearchModal';
 import { LastReadRecord } from './services/lastReadService';
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
   const [tier3SessionKey, setTier3SessionKey] = useState<number>(0);
   const [autoStartPlayback, setAutoStartPlayback] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
 
   // Global Playback, Voice, Font Size, Pitch & Night Mode State
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
@@ -268,6 +270,28 @@ export default function App() {
     }
   };
 
+  // Jump from search result to book & chapter & verse
+  const handleJumpFromSearch = (book: BibleBook, chapter: number, verse: number) => {
+    setSelectedBook(book);
+    setInitialChapter(chapter);
+    setInitialVerse(verse);
+    setInitialReadingMode('CHAPTERS');
+    setInitialStartVerse(verse);
+    setInitialEndVerse(undefined);
+    setInitialVerseNumbers(undefined);
+    setIsFromBookmark(false);
+    setActiveBookmarkOrigin({
+      book,
+      chapter,
+      version: selectedVersion,
+    });
+    setAutoStartPlayback(false);
+    setTier3SessionKey((k) => k + 1);
+    setCurrentTier('TIER3');
+    setIsSearchOpen(false);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
   return (
     <div className="min-h-screen bg-black text-amber-100 flex flex-col font-sans selection:bg-amber-400 selection:text-black">
       {/* Top Header Navigation */}
@@ -279,6 +303,7 @@ export default function App() {
         onGoBackToTier2={handleGoBackToTier2}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onBookNameClick={handleHeaderBookNameClick}
+        onOpenSearch={() => setIsSearchOpen(true)}
       />
 
       {/* Main Tier View Container */}
@@ -350,6 +375,14 @@ export default function App() {
         onNightModeChange={setIsNightMode}
         sleepTimerEndTime={sleepTimerEndTime}
         onSetSleepTimer={handleSetSleepTimer}
+      />
+
+      {/* Scripture Search Modal (附件3) */}
+      <SearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        selectedVersion={selectedVersion}
+        onJumpToScripture={handleJumpFromSearch}
       />
     </div>
   );

@@ -7,7 +7,7 @@ import { normalizeGodTerms } from './bibleService';
 const FHL_NAME_TO_BOOK_ID: Record<string, string> = {
   '創': 'GEN', '出': 'EXO', '利': 'LEV', '民': 'NUM', '申': 'DEU', '書': 'JOS', '士': 'JDG', '得': 'RUT',
   '撒上': '1SA', '撒下': '2SA', '王上': '1KI', '王下': '2KI', '代上': '1CH', '代下': '2CH',
-  '拉': 'EZR', '尼': 'NEH', '帖': 'EST', '伯': 'JOB', '詩': 'PSA', '箴': 'PRO', '傳': 'ECC', '歌': 'SNG',
+  '拉': 'EZR', '尼': 'NEH', '斯': 'EST', '帖': 'EST', '伯': 'JOB', '詩': 'PSA', '箴': 'PRO', '傳': 'ECC', '歌': 'SNG',
   '賽': 'ISA', '耶': 'JER', '哀': 'LAM', '結': 'EZK', '但': 'DAN', '何': 'HOS', '珥': 'JOL', '摩': 'AMO',
   '俄': 'OBA', '拿': 'JON', '彌': 'MIC', '鴻': 'NAH', '哈': 'HAB', '番': 'ZEP', '該': 'HAG', '亞': 'ZEC',
   '瑪': 'MAL', '太': 'MAT', '可': 'MRK', '路': 'LUK', '約': 'JHN', '使': 'ACT', '羅': 'ROM', '林前': '1CO',
@@ -121,13 +121,19 @@ export async function searchScriptureByKeyword(
   const results: BibleSearchResult[] = [];
   const seenIds = new Set<string>();
 
-  // 1. Try Online Search with FHL API
+  // 1. Try Online Search with proxy or direct FHL API
   try {
     const fhlVersion = version === 'KJV' ? 'kjv' : 'unv';
     const fhlQuery = query === '上帝' ? '神' : query;
-    const url = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(fhlQuery)}&VERSION=${fhlVersion}&orig=0`;
+    const proxyUrl = `/api/bible/search?q=${encodeURIComponent(fhlQuery)}&version=${fhlVersion}`;
 
-    const res = await fetch(url);
+    let res = await fetch(proxyUrl);
+    if (!res.ok) {
+      // Fallback to direct if proxy is unreachable
+      const directUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(fhlQuery)}&VERSION=${fhlVersion}&orig=0`;
+      res = await fetch(directUrl);
+    }
+
     if (res.ok) {
       const json = await res.json();
       if (json.status === 'success' && Array.isArray(json.record)) {

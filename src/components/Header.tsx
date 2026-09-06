@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Home, Volume2, Sparkles, ChevronRight, Settings } from 'lucide-react';
+import { BookOpen, Home, Volume2, Sparkles, ChevronRight, Settings, Search } from 'lucide-react';
 import { BibleVersion, Tier } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 
@@ -11,6 +11,7 @@ interface HeaderProps {
   onGoBackToTier2?: () => void;
   onOpenSettings?: () => void;
   onBookNameClick?: () => void;
+  onOpenSearch?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onGoBackToTier2,
   onOpenSettings,
   onBookNameClick,
+  onOpenSearch,
 }) => {
   const versionInfo = VERSIONS[selectedVersion];
 
@@ -139,15 +141,16 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* 回到首頁 Button (only shown in TIER 2 and TIER 3) */}
-          {currentTier !== 'TIER1' && (
+          {/* 查詢 Button (only shown in TIER 2 and TIER 3) */}
+          {currentTier !== 'TIER1' && onOpenSearch && (
             <button
-              onClick={onGoHome}
+              id="header-search-btn"
+              onClick={onOpenSearch}
               className="px-2.5 py-1 rounded-lg text-xs font-bold btn-gold flex items-center gap-1 shadow-md shadow-amber-500/20"
-              title="回到首頁，重新選擇聖經版本 (TIER 1)"
+              title="聖經經文組合字串查詢"
             >
-              <Home className="w-3.5 h-3.5" />
-              <span>首頁</span>
+              <Search className="w-3.5 h-3.5" />
+              <span>查詢</span>
             </button>
           )}
 

@@ -86,6 +86,62 @@ async function startServer() {
     }
   });
 
+  // Search API proxy for FHL Bible search (bypasses CORS and normalizes query)
+  app.get('/api/bible/search', async (req, res) => {
+    try {
+      const rawQ = (req.query.q as string || '').trim();
+      const versionParam = (req.query.version as string || 'CUV').toUpperCase();
+      
+      if (!rawQ) {
+        return res.json({ status: 'success', record_count: 0, record: [] });
+      }
+
+      // Map version to FHL version code
+      let versionCode = 'unv';
+      if (versionParam === 'KJV') {
+        versionCode = 'kjv';
+      }
+
+      // Collapse multiple whitespace characters into single spaces for clean query matching
+      const cleanQ = rawQ.replace(/\s+/g, ' ').trim();
+      const targetUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=${versionCode}`;
+      console.log(`[Bible Search Proxy] Querying: ${cleanQ} (${versionCode})`);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      
+      const response = await fetch(targetUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Search upstream error' });
+      }
+
+      const data = await response.json();
+      // Normalize God terms in records: '上帝' -> '　神'
+      if (Array.isArray(data.record)) {
+        data.record = data.record.map((item: any) => ({
+          ...item,
+          bible_text: item.bible_text
+            ? item.bible_text.replace(/上帝/g, '　神').replace(/[ \t]{1,2}神/g, '　神')
+            : '',
+        }));
+      }
+
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.json(data);
+    } catch (err: any) {
+      console.error('[Bible Search Proxy Error]:', err);
+      res.status(500).json({ error: err.message || 'Search failed' });
+    }
+  });
+
   // API health check
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
