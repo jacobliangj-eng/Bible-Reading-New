@@ -1486,7 +1486,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕 - 確保同一列不可分行)
-  const renderChapterNavBar = (idSuffix: string = 'bottom') => {
+  const renderChapterNavBar = (idSuffix: string = 'top') => {
     const handleConfirmJump = (overrideVal?: string) => {
       const raw = overrideVal !== undefined ? overrideVal : (inputValRef.current || chapterInputText);
       const parsed = parseInt(raw.trim(), 10);
@@ -1629,7 +1629,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 pt-0 pb-16 space-y-2 sm:space-y-2.5">
+    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 pt-0 pb-4 space-y-2 sm:space-y-2.5">
       {/* Hidden Audio Element for FHL MP3 Playback */}
       <audio
         ref={audioRef}
@@ -1793,22 +1793,31 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {customVerseNumbers && customVerseNumbers.length > 0 && (
-          <div className="flex items-center gap-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-1 rounded-lg text-amber-900 shadow-xs shrink-0 whitespace-nowrap mb-2 w-fit">
-            <span className="font-bold text-[11px] sm:text-xs">指定：第 {customVerseNumbers.join(', ')} 節</span>
-            <button
-              type="button"
-              onClick={() => {
-                setCustomVerseNumbers(undefined);
-                setReadingMode('CHAPTERS');
-              }}
-              className="text-[11px] underline text-amber-800 hover:text-amber-950 font-bold cursor-pointer ml-1"
-              title="切換回整章閱讀"
-            >
-              顯示全章
-            </button>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5 pb-2.5 border-b border-amber-100 flex-nowrap">
+          {customVerseNumbers && customVerseNumbers.length > 0 ? (
+            <div className="flex items-center gap-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-lg text-amber-900 shadow-xs shrink-0 whitespace-nowrap mr-auto">
+              <span className="font-bold text-[11px] sm:text-xs">指定：第 {customVerseNumbers.join(', ')} 節</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomVerseNumbers(undefined);
+                  setReadingMode('CHAPTERS');
+                }}
+                className="text-[11px] underline text-amber-800 hover:text-amber-950 font-bold cursor-pointer ml-1"
+                title="切換回整章閱讀"
+              >
+                顯示全章
+              </button>
+            </div>
+          ) : (
+            <div className="hidden sm:block" />
+          )}
+
+          <div className="flex items-center justify-center sm:justify-end flex-nowrap shrink-0 w-full sm:w-auto">
+            {/* Chapter Navigation Bar (Top) */}
+            {renderChapterNavBar('top')}
           </div>
-        )}
+        </div>
 
         {isLoadingVerses && activeVerses.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
@@ -1953,11 +1962,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         )}
 
         {/* Bottom Chapter Navigation Bar (每章最尾端的右邊，始終顯示在同一列) */}
-      </div>
-
-      {/* Scripture Navigation Footer Container */}
-      <div className="fixed bottom-0 left-0 w-full z-30 bg-white/95 backdrop-blur-md border-t border-amber-300/80 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] py-2 px-3 sm:px-6 flex items-center justify-end flex-nowrap">
-        <div className="max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] w-full mx-auto flex items-center justify-end flex-nowrap">
+        <div className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap">
           {renderChapterNavBar('bottom')}
         </div>
       </div>
