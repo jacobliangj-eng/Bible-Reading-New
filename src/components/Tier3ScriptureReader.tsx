@@ -24,6 +24,7 @@ import {
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
+import { BookChapterSelector } from './BookChapterSelector';
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
@@ -180,6 +181,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   } | null>(null);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const lastVerseTapRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+
+  // Book and Chapter Selector Modal State (圖1 & 圖2 / 附件1 & 附件2)
+  const [isBookChapterModalOpen, setIsBookChapterModalOpen] = useState<boolean>(false);
 
   // Bookmark state & toggle
   const isVerseMode = readingMode === 'VERSES' || startVerseNum > 1 || endVerseNum < maxVersesForChapter;
@@ -1548,62 +1552,35 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           <span className="whitespace-nowrap">上一{chapterUnit}</span>
         </button>
 
-        {/* Chapter Navigation Form Pill: input + / + 總章數 + 前往按鈕 (Form讓手機數字鍵盤直接顯示 Enter / 前往鍵) */}
-        <form
-          action="#"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleConfirmJump();
+        {/* Chapter Navigation Form Pill: input + / + 總章數 + 前往按鈕 */}
+        <div
+          onClick={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            setIsBookChapterModalOpen(true);
           }}
-          className="flex items-center text-xs font-mono font-bold px-1 sm:px-1.5 py-0.5 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs focus-within:ring-2 focus-within:ring-amber-500 focus-within:border-amber-600 focus-within:bg-white shrink-0 whitespace-nowrap"
-          title={`可直接點擊或輸入想朗讀的${chapterUnit} (1~${selectedBook.chaptersCount})`}
+          className="flex items-center text-xs font-mono font-bold px-1 sm:px-1.5 py-0.5 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
+          title={`點選開啟章節與書卷選單 (1~${selectedBook.chaptersCount})`}
         >
           <input
             type="text"
             data-chapter-input="true"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            enterKeyHint="go"
+            readOnly
             value={chapterInputText}
-            onChange={(e) => {
-              const val = e.target.value.replace(/[^0-9]/g, '');
-              setChapterInputText(val);
-              inputValRef.current = val;
-            }}
             onClick={(e) => {
-              const target = e.target as HTMLInputElement;
-              target.select();
-              autoScrollInputToSafePosition(target);
+              e.stopPropagation();
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              setIsBookChapterModalOpen(true);
             }}
             onFocus={(e) => {
-              setIsChapterInputFocused(true);
-              const target = e.target as HTMLInputElement;
-              target.select();
-              autoScrollInputToSafePosition(target);
+              e.target.blur();
+              setIsBookChapterModalOpen(true);
             }}
-            onBlur={(e) => {
-              setIsChapterInputFocused(false);
-              const val = e.target.value.trim();
-              const parsed = parseInt(val, 10);
-              if (!isNaN(parsed) && parsed >= 1) {
-                handleConfirmJump(val);
-              } else {
-                setChapterInputText(String(viewChapter));
-                inputValRef.current = String(viewChapter);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleConfirmJump((e.target as HTMLInputElement).value);
-              } else if (e.key === 'Escape') {
-                setChapterInputText(String(viewChapter));
-                inputValRef.current = String(viewChapter);
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            className="w-10 sm:w-11 h-7 sm:h-6 text-center bg-white hover:bg-amber-50/50 focus:bg-white text-amber-950 font-bold font-mono text-[16px] sm:text-xs px-0.5 py-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/70 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-all cursor-text shadow-inner shrink-0"
-            title={`輸入欲朗讀的${chapterUnit}數，按鍵盤 Enter 或點擊「前往」立即跳轉`}
+            className="w-10 sm:w-11 h-7 sm:h-6 text-center bg-white hover:bg-amber-50 focus:bg-white text-amber-950 font-bold font-mono text-[16px] sm:text-xs px-0.5 py-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/70 [appearance:textfield] transition-all cursor-pointer shadow-inner shrink-0"
+            title={`點選開啟章節與書卷選單 (1~${selectedBook.chaptersCount})`}
           />
           <span className="text-amber-700/80 px-0.5 font-sans text-xs shrink-0">/</span>
           <span className="text-amber-900 pr-0.5 text-xs whitespace-nowrap shrink-0">
@@ -1613,23 +1590,19 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           {/* Dedicated "前往" action button on the same line */}
           <button
             type="button"
-            onPointerDown={(e) => {
-              e.preventDefault();
-            }}
             onClick={(e) => {
-              e.preventDefault();
-              handleConfirmJump();
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              handleConfirmJump();
+              e.stopPropagation();
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              setIsBookChapterModalOpen(true);
             }}
             className="ml-0.5 px-1.5 sm:px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-zinc-950 font-bold text-xs shadow-xs border border-amber-500/70 cursor-pointer whitespace-nowrap active:scale-95 transition-all shrink-0 flex items-center justify-center"
-            title="前往指定章節"
+            title="開啟章節與書卷選單"
           >
             前往
           </button>
-        </form>
+        </div>
 
         {/* 下一章按鈕 */}
         <button
@@ -2097,6 +2070,26 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             <span>{actionToast}</span>
           </div>
         </div>
+      )}
+
+      {/* Book & Chapter Selector Modal (圖1 & 圖2 / 附件1 & 附件2) */}
+      {isBookChapterModalOpen && (
+        <BookChapterSelector
+          selectedVersion={selectedVersion}
+          initialTab="CHAPTER"
+          currentBook={selectedBook}
+          currentChapter={viewChapter}
+          isModal={true}
+          onBack={() => setIsBookChapterModalOpen(false)}
+          onSelectChapter={(book, chapter) => {
+            setIsBookChapterModalOpen(false);
+            if (book.id === selectedBook.id) {
+              handleJumpToChapter(chapter);
+            } else if (onSelectBook) {
+              onSelectBook(book, chapter, isPlaying);
+            }
+          }}
+        />
       )}
     </div>
   );

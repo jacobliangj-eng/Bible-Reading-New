@@ -301,6 +301,7 @@ export default function App() {
             selectedVersion={selectedVersion}
             onSelectBook={handleSelectBook}
             onGoHome={handleGoHome}
+            initialBook={selectedBook || undefined}
           />
         )}
 
