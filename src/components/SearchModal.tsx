@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
-  X,
   Loader2,
   CheckCircle2,
   Search,
@@ -246,15 +245,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       ? 'KJV'
       : 'Segond';
 
+  if (!isOpen) return null;
+
   return (
     <div
-      id="search-modal-backdrop"
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex flex-col justify-end sm:justify-center items-center p-0 sm:p-3 animate-in fade-in duration-150"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      id="search-page-container"
+      className="w-full min-h-[101dvh] bg-[#fcf8e3] text-stone-900 flex flex-col relative animate-in fade-in duration-150"
     >
       {/* Floating Toast Notification */}
       {toastMessage && (
@@ -267,9 +263,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       {/* Main Container matching 附件4 layout and parchment background */}
       <div
         id="search-modal-container"
-        className="w-full h-full sm:h-[94vh] sm:max-h-[860px] sm:max-w-xl bg-[#fcf8e3] text-stone-900 flex flex-col sm:rounded-xl shadow-2xl overflow-hidden border border-[#593E36]/30"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl mx-auto flex-1 bg-[#fcf8e3] flex flex-col sm:shadow-lg sm:border-x border-[#593E36]/30 pb-24 relative"
       >
+        {/* Sticky Top Header + Search Bar (置頂在頁面最上方，隨著頁面捲動保持置頂) */}
+        <div className="sticky top-0 z-30 shadow-md">
         {/* Top Header Bar: 棕色背景、左←、中「搜索」、右「新標點」 */}
         <header className="bg-[#593E36] text-white h-11 px-3.5 flex items-center justify-between shrink-0 select-none shadow-sm">
           <button
@@ -327,7 +324,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               <input
                 ref={inputRef}
                 id="search-combination-input"
-                type="search"
+                type="text"
                 inputMode="search"
                 enterKeyHint="search"
                 autoCapitalize="none"
@@ -350,24 +347,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 className="w-full pl-2.5 pr-8 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
               />
 
-              {/* 清除按鈕 */}
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery('');
-                    setResults([]);
-                    setHasSearched(false);
-                    inputRef.current?.focus();
-                  }}
-                  className="pr-1.5 text-stone-400 hover:text-stone-700 active:scale-90 touch-manipulation cursor-pointer"
-                  title="清除"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {/* 手機即點搜尋按鈕（小放大鏡圖示，點擊立即執行） */}
+              {/* 手機/電腦即點搜尋按鈕（小放大鏡圖示，點擊立即執行） */}
               <button
                 type="submit"
                 onClick={(e) => {
@@ -383,69 +363,72 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             </div>
           </form>
         </div>
+      </div>
 
-        {/* 查詢結果清單區 (依附件4格式排列) */}
-        <div className="flex-1 overflow-y-auto px-3.5 py-1.5 space-y-1.5 bg-[#fcf8e3]">
-          {/* 總條數標題: 共搜索到相關經文 X 條 */}
-          {hasSearched && (
-            <div className="font-bold text-stone-900 text-sm sm:text-base pt-0.5 pb-0.5">
-              {isSearching ? (
-                <span className="flex items-center gap-1.5 text-stone-600">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#6d4c41]" />
-                  <span>正在搜尋中...</span>
+      {/* 查詢結果清單區 (依附件4格式排列，自然文件流滾動，手指往上滑動時瀏覽器底欄會自動縮回) */}
+      <div className="flex-1 px-3.5 py-1.5 space-y-1.5 bg-[#fcf8e3]">
+        {/* 總條數標題: 共搜索到相關經文 X 條 */}
+        {hasSearched && (
+          <div className="font-bold text-stone-900 text-sm sm:text-base pt-0.5 pb-0.5">
+            {isSearching ? (
+              <span className="flex items-center gap-1.5 text-stone-600">
+                <Loader2 className="w-4 h-4 animate-spin text-[#6d4c41]" />
+                <span>正在搜尋中...</span>
+              </span>
+            ) : (
+              <span>共搜索到相關經文 {results.length} 條</span>
+            )}
+          </div>
+        )}
+
+        {/* 查無結果狀態 */}
+        {!isSearching && hasSearched && results.length === 0 && (
+          <div className="py-12 text-center text-stone-500 space-y-1">
+            <p className="text-sm font-medium">查無包含「{searchedQuery}」的經文</p>
+            <p className="text-xs text-stone-400">請嘗試更換關鍵字或確認字詞拼寫</p>
+          </div>
+        )}
+
+        {/* 經文列表 (附件4格式: 綠色經卷章節 + 空格 + 經文本文 + 紅字關鍵字) */}
+        {!isSearching &&
+          results.map((item) => {
+            const isSelected = selectedResult?.id === item.id;
+            const shortBook =
+              item.book.shortName[selectedVersion] || item.book.shortName.CUV;
+
+            return (
+              <div
+                key={item.id}
+                id={`search-result-item-${item.id}`}
+                onClick={() => setSelectedResultId(item.id)}
+                onDoubleClick={() => handleJump(item)}
+                className={`text-[17px] sm:text-[17px] leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
+                  isSelected
+                    ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
+                    : 'hover:bg-amber-100/30'
+                }`}
+              >
+                {/* 綠色書卷縮寫與章節，例如: 創 8:7 */}
+                <span className="text-[#2e7d32] font-bold mr-1.5 select-none inline-block">
+                  {shortBook} {item.chapter}:{item.verse}
                 </span>
-              ) : (
-                <span>共搜索到相關經文 {results.length} 條</span>
-              )}
-            </div>
-          )}
 
-          {/* 查無結果狀態 */}
-          {!isSearching && hasSearched && results.length === 0 && (
-            <div className="py-12 text-center text-stone-500 space-y-1">
-              <p className="text-sm font-medium">查無包含「{searchedQuery}」的經文</p>
-              <p className="text-xs text-stone-400">請嘗試更換關鍵字或確認字詞拼寫</p>
-            </div>
-          )}
+                {/* 經文內容 (關鍵字紅字標示) */}
+                <span className="text-stone-900">
+                  {renderHighlightedText(item.text)}
+                </span>
+              </div>
+            );
+          })}
+      </div>
 
-          {/* 經文列表 (附件4格式: 綠色經卷章節 + 空格 + 經文本文 + 紅字關鍵字) */}
-          {!isSearching &&
-            results.map((item) => {
-              const isSelected = selectedResult?.id === item.id;
-              const shortBook =
-                item.book.shortName[selectedVersion] || item.book.shortName.CUV;
-
-              return (
-                <div
-                  key={item.id}
-                  id={`search-result-item-${item.id}`}
-                  onClick={() => setSelectedResultId(item.id)}
-                  onDoubleClick={() => handleJump(item)}
-                  className={`text-[18px] sm:text-[18px] leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
-                    isSelected
-                      ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
-                      : 'hover:bg-amber-100/30'
-                  }`}
-                >
-                  {/* 綠色書卷縮寫與章節，例如: 創 8:7 */}
-                  <span className="text-[#2e7d32] font-bold mr-1.5 select-none inline-block">
-                    {shortBook} {item.chapter}:{item.verse}
-                  </span>
-
-                  {/* 經文內容 (關鍵字紅字標示) */}
-                  <span className="text-stone-900">
-                    {renderHighlightedText(item.text)}
-                  </span>
-                </div>
-              );
-            })}
-        </div>
-
-        {/* 底部3個控制項: 跳轉、複製、分享 (高度大幅縮小，棕色背景) */}
-        <footer
-          id="search-bottom-controls"
-          className="bg-[#593E36] text-white h-10 px-2 flex items-center justify-around shrink-0 select-none shadow-md"
-        >
+      {/* 底部3個控制項: 跳轉、複製、分享 (高度大幅縮小，固定置底，如同 TIER3 播放列) */}
+      <footer
+        id="search-bottom-controls"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-[#593E36] text-white select-none shadow-2xl border-t border-[#3e2723]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="max-w-xl mx-auto h-10 px-2 flex items-center justify-around">
           {/* 跳轉按鈕 */}
           <button
             id="search-ctrl-jump"
@@ -487,8 +470,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           >
             分享
           </button>
-        </footer>
-      </div>
+        </div>
+      </footer>
+    </div>
     </div>
   );
 };

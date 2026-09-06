@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BibleBook, BibleVersion, Bookmark, ReadingMode, Tier } from './types';
 import { BIBLE_BOOKS } from './data/bibleBooks';
 import { Header } from './components/Header';
@@ -270,6 +270,22 @@ export default function App() {
     }
   };
 
+  // Remember scroll position before opening search, to restore upon returning
+  const prevScrollYRef = useRef<number>(0);
+
+  const handleOpenSearch = () => {
+    prevScrollYRef.current = window.scrollY;
+    setIsSearchOpen(true);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const handleCloseSearch = () => {
+    setIsSearchOpen(false);
+    setTimeout(() => {
+      window.scrollTo({ top: prevScrollYRef.current, left: 0, behavior: 'instant' });
+    }, 20);
+  };
+
   // Jump from search result to book & chapter & verse
   const handleJumpFromSearch = (book: BibleBook, chapter: number, verse: number) => {
     setSelectedBook(book);
@@ -294,20 +310,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black text-amber-100 flex flex-col font-sans selection:bg-amber-400 selection:text-black">
-      {/* Top Header Navigation */}
-      <Header
-        currentTier={currentTier}
-        selectedVersion={selectedVersion}
-        selectedBookName={selectedBook?.name[selectedVersion]}
-        onGoHome={handleGoHome}
-        onGoBackToTier2={handleGoBackToTier2}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onBookNameClick={handleHeaderBookNameClick}
-        onOpenSearch={() => setIsSearchOpen(true)}
-      />
+      {/* Top Header Navigation (在搜尋頁面時隱藏，由搜尋頁面自身的棕色頂欄提供返回與搜尋) */}
+      {!isSearchOpen && (
+        <Header
+          currentTier={currentTier}
+          selectedVersion={selectedVersion}
+          selectedBookName={selectedBook?.name[selectedVersion]}
+          onGoHome={handleGoHome}
+          onGoBackToTier2={handleGoBackToTier2}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onBookNameClick={handleHeaderBookNameClick}
+          onOpenSearch={handleOpenSearch}
+        />
+      )}
 
-      {/* Main Tier View Container */}
-      <main className="flex-1 pb-16">
+      {/* Main Tier View Container (在搜尋時 hidden 保留 DOM 與音訊狀態) */}
+      <main className={`flex-1 ${isSearchOpen ? 'hidden' : 'pb-16'}`}>
         {currentTier === 'TIER1' && (
           <Tier1VersionSelect
             selectedVersion={selectedVersion}
@@ -377,13 +395,15 @@ export default function App() {
         onSetSleepTimer={handleSetSleepTimer}
       />
 
-      {/* Scripture Search Modal (附件3) */}
-      <SearchModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        selectedVersion={selectedVersion}
-        onJumpToScripture={handleJumpFromSearch}
-      />
+      {/* Scripture Search View (在文件流中滾動，手機上滑時瀏覽器底欄自動收起) */}
+      {isSearchOpen && (
+        <SearchModal
+          isOpen={isSearchOpen}
+          onClose={handleCloseSearch}
+          selectedVersion={selectedVersion}
+          onJumpToScripture={handleJumpFromSearch}
+        />
+      )}
     </div>
   );
 }
