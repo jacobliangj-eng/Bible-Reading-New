@@ -315,7 +315,7 @@ export default function App() {
         <Header
           currentTier={currentTier}
           selectedVersion={selectedVersion}
-          selectedBookName={selectedBook?.name[selectedVersion]}
+          selectedBookName={selectedBook ? ((selectedBook.name as any)[selectedVersion] || selectedBook.name.WEB || selectedBook.name.CUV) : undefined}
           onGoHome={handleGoHome}
           onGoBackToTier2={handleGoBackToTier2}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -401,6 +401,7 @@ export default function App() {
           isOpen={isSearchOpen}
           onClose={handleCloseSearch}
           selectedVersion={selectedVersion}
+          onVersionChange={setSelectedVersion}
           onJumpToScripture={handleJumpFromSearch}
         />
       )}

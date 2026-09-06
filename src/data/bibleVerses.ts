@@ -1,7 +1,7 @@
 import { BibleVersion, Verse } from '../types';
 
 // Famous pre-loaded actual scripture chapters
-const PRELOADED_VERSES: Record<string, Record<BibleVersion, Verse[]>> = {
+const PRELOADED_VERSES: Record<string, Partial<Record<BibleVersion, Verse[]>>> = {
   // Genesis Chapter 1
   'GEN_1': {
     CUV: [
@@ -19,7 +19,7 @@ const PRELOADED_VERSES: Record<string, Record<BibleVersion, Verse[]>> = {
       { chapter: 1, verse: 27, text: '神就照著自己的形像造人，乃是照著祂的形像造男造女。' },
       { chapter: 1, verse: 31, text: '神看著一切所造的都甚好。有晚上，有早晨，是第六日。' },
     ],
-    KJV: [
+    WEB: [
       { chapter: 1, verse: 1, text: 'In the beginning God created the heaven and the earth.' },
       { chapter: 1, verse: 2, text: 'And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters.' },
       { chapter: 1, verse: 3, text: 'And God said, Let there be light: and there was light.' },
@@ -50,7 +50,7 @@ const PRELOADED_VERSES: Record<string, Record<BibleVersion, Verse[]>> = {
       { chapter: 23, verse: 5, text: '在我敵人面前，你為我擺設筵席；你用油膏了我的頭，使我的福杯滿溢。' },
       { chapter: 23, verse: 6, text: '我一生一世必有恩惠慈愛隨著我；我且要住在耶和華的殿中，直到永遠。' },
     ],
-    KJV: [
+    WEB: [
       { chapter: 23, verse: 1, text: 'The LORD is my shepherd; I shall not want.' },
       { chapter: 23, verse: 2, text: 'He maketh me to lie down in green pastures: he leadeth me beside the still waters.' },
       { chapter: 23, verse: 3, text: 'He restoreth my soul: he leadeth me in the paths of righteousness for his name\'s sake.' },
@@ -84,7 +84,7 @@ const PRELOADED_VERSES: Record<string, Record<BibleVersion, Verse[]>> = {
       { chapter: 5, verse: 14, text: '你們是世上的光。城造在山上是不能隱藏的。' },
       { chapter: 5, verse: 16, text: '你們的光也當這樣照在人前，叫他們看見你們的好行為，便將榮耀歸給你們在天上的父。' },
     ],
-    KJV: [
+    WEB: [
       { chapter: 5, verse: 1, text: 'And seeing the multitudes, he went up into a mountain: and when he was set, his disciples came unto him:' },
       { chapter: 5, verse: 2, text: 'And he opened his mouth, and taught them, saying,' },
       { chapter: 5, verse: 3, text: 'Blessed are the poor in spirit: for theirs is the kingdom of heaven.' },
@@ -122,7 +122,7 @@ const PRELOADED_VERSES: Record<string, Record<BibleVersion, Verse[]>> = {
       { chapter: 3, verse: 17, text: '因為神差祂的兒子降世，不是要審判世人，乃是要世人因祂得救。' },
       { chapter: 3, verse: 18, text: '信祂的人，不被定罪；不信的人，罪已經定了，因為他不信神獨生子的名。' },
     ],
-    KJV: [
+    WEB: [
       { chapter: 3, verse: 1, text: 'There was a man of the Pharisees, named Nicodemus, a ruler of the Jews:' },
       { chapter: 3, verse: 2, text: 'The same came to Jesus by night, and said unto him, Rabbi, we know that thou art a teacher come from God: for no man can do these miracles that thou doest, except God be with him.' },
       { chapter: 3, verse: 3, text: 'Jesus answered and said unto him, Verily, verily, I say unto thee, Except a man be born again, he cannot see the kingdom of God.' },
@@ -153,7 +153,7 @@ const PRELOADED_VERSES: Record<string, Record<BibleVersion, Verse[]>> = {
       { chapter: 13, verse: 8, text: '愛是永不止息。先知講道之能終必歸於無有；說方言之能終必停止；知識也終必歸於無有。' },
       { chapter: 13, verse: 13, text: '如今常存的有信，有望，有愛這三樣，其中最大的是愛。' },
     ],
-    KJV: [
+    WEB: [
       { chapter: 13, verse: 1, text: 'Though I speak with the tongues of men and of angels, and have not charity, I am become as sounding brass, or a tinkling cymbal.' },
       { chapter: 13, verse: 2, text: 'And though I have the gift of prophecy, and understand all mysteries, and all knowledge; and though I have all faith, so that I could remove mountains, and have not charity, I am nothing.' },
       { chapter: 13, verse: 3, text: 'And though I bestow all my goods to feed the poor, and though I give my body to be burned, and have not charity, it profiteth me nothing.' },
@@ -199,7 +199,7 @@ export function getChapterVerses(
     let text = '';
     if (version === 'CUV') {
       text = getChineseVerseTemplate(bookName, chapter, v);
-    } else if (version === 'KJV') {
+    } else if (version === 'WEB' || version === 'KJV') {
       text = getEnglishVerseTemplate(bookName, chapter, v);
     } else {
       text = getFrenchVerseTemplate(bookName, chapter, v);

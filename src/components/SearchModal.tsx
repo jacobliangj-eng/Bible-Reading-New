@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   Search,
   X,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { BibleBook, BibleVersion } from '../types';
 import { searchBibleVerses, SearchVerseItem } from '../services/bibleService';
@@ -13,15 +15,42 @@ interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedVersion: BibleVersion;
+  onVersionChange?: (version: BibleVersion) => void;
   onJumpToScripture: (book: BibleBook, chapter: number, verse: number) => void;
 }
+
+const VERSION_OPTIONS: { value: BibleVersion; label: string; shortLabel: string; desc: string }[] = [
+  {
+    value: 'CUV',
+    label: '中文 和合本 (新標點)',
+    shortLabel: '新標點',
+    desc: '經典和合本・紅字主話',
+  },
+  {
+    value: 'WEB',
+    label: '英文 World English Bible',
+    shortLabel: 'WEB',
+    desc: '現代通俗・開放授權',
+  },
+  {
+    value: 'LSG',
+    label: '法文 La Bible Segond',
+    shortLabel: 'Segond',
+    desc: '法語經典・權威譯本',
+  },
+];
 
 export const SearchModal: React.FC<SearchModalProps> = ({
   isOpen,
   onClose,
   selectedVersion,
+  onVersionChange,
   onJumpToScripture,
 }) => {
+  const [currentVersion, setCurrentVersion] = useState<BibleVersion>(selectedVersion);
+  const [isVersionDropdownOpen, setIsVersionDropdownOpen] = useState<boolean>(false);
+  const versionDropdownRef = useRef<HTMLDivElement | null>(null);
+
   const [query, setQuery] = useState<string>('烏鴉');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [results, setResults] = useState<SearchVerseItem[]>([]);
@@ -35,6 +64,29 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Sync selectedVersion from parent
+  useEffect(() => {
+    setCurrentVersion(selectedVersion);
+  }, [selectedVersion]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        versionDropdownRef.current &&
+        !versionDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsVersionDropdownOpen(false);
+      }
+    };
+    if (isVersionDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isVersionDropdownOpen]);
+
   const showToast = (msg: string) => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -46,12 +98,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   };
 
   // Perform search
-  const handleExecuteSearch = async (qToSearch?: string) => {
+  const handleExecuteSearch = async (qToSearch?: string, verToSearch?: BibleVersion) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
     const raw = typeof qToSearch === 'string' ? qToSearch : query;
+    const activeVer = verToSearch || currentVersion;
     const cleanQ = raw.trim();
     if (!cleanQ) {
       setResults([]);
@@ -66,7 +119,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     setSearchedQuery(cleanQ);
 
     try {
-      const data = await searchBibleVerses(cleanQ, selectedVersion);
+      const data = await searchBibleVerses(cleanQ, activeVer);
       setResults(data);
       if (data && data.length > 0) {
         setSelectedResultId(data[0].id);
@@ -79,6 +132,22 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       setSelectedResultId(null);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // Switch search version from dropdown
+  const handleVersionChange = (newVer: BibleVersion) => {
+    setCurrentVersion(newVer);
+    setIsVersionDropdownOpen(false);
+    if (onVersionChange) {
+      onVersionChange(newVer);
+    }
+    const opt = VERSION_OPTIONS.find((o) => o.value === newVer);
+    showToast(`已切換搜尋譯本至「${opt?.shortLabel || newVer}」`);
+
+    // Re-run search if query exists
+    if (query.trim()) {
+      handleExecuteSearch(query, newVer);
     }
   };
 
@@ -252,13 +321,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     });
   };
 
-  // Version label on top right
-  const versionShortLabel =
-    selectedVersion === 'CUV'
-      ? '新標點'
-      : selectedVersion === 'KJV'
-      ? 'KJV'
-      : 'Segond';
+  // Selected version option
+  const currentVersionOption =
+    VERSION_OPTIONS.find((opt) => opt.value === currentVersion) ||
+    VERSION_OPTIONS[0];
 
   if (!isOpen) return null;
 
@@ -282,8 +348,8 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       >
         {/* Sticky Top Header + Search Bar (置頂在頁面最上方，隨著頁面捲動保持置頂) */}
         <div className="sticky top-0 z-30 shadow-md">
-        {/* Top Header Bar: 棕色背景、左←、中「搜索」、右「新標點」 */}
-        <header className="bg-[#593E36] text-white h-11 px-3.5 flex items-center justify-between shrink-0 select-none shadow-sm">
+        {/* Top Header Bar: 棕色背景、左←、中「搜索」、右「下拉式選單」 */}
+        <header className="bg-[#593E36] text-white h-11 px-3.5 flex items-center justify-between shrink-0 select-none shadow-sm relative">
           <button
             id="search-modal-back-btn"
             type="button"
@@ -305,9 +371,62 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             搜索
           </span>
 
-          <span className="text-xs text-white/90 font-normal pr-1">
-            {versionShortLabel}
-          </span>
+          {/* 右上角版本下拉選單 (支援 CUV / WEB / LSG 三版本切換查詢) */}
+          <div className="relative" ref={versionDropdownRef}>
+            <button
+              id="search-version-dropdown-btn"
+              type="button"
+              onClick={() => setIsVersionDropdownOpen((prev) => !prev)}
+              className="flex items-center gap-1 bg-[#442c25] hover:bg-[#38231c] text-[#fbe29d] hover:text-white text-xs font-medium py-1 px-2.5 rounded border border-amber-600/40 hover:border-amber-400 active:scale-95 transition-all cursor-pointer shadow-xs select-none touch-manipulation"
+              title="切換搜尋聖經版本"
+              aria-expanded={isVersionDropdownOpen}
+              aria-haspopup="true"
+            >
+              <span>{currentVersionOption.shortLabel}</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-amber-300 transition-transform duration-200 ${
+                  isVersionDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {/* 下拉式選單浮層 */}
+            {isVersionDropdownOpen && (
+              <div
+                id="search-version-menu"
+                className="absolute right-0 mt-1.5 w-52 bg-[#3b241e] text-amber-100 rounded-md shadow-2xl border border-amber-500/40 py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150 backdrop-blur-md"
+              >
+                <div className="px-3 py-1.5 text-[11px] font-medium text-amber-300/75 border-b border-amber-500/20 tracking-wider">
+                  切換查詢譯本
+                </div>
+                {VERSION_OPTIONS.map((opt) => {
+                  const isSelected = currentVersion === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => handleVersionChange(opt.value)}
+                      className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-500/20 text-amber-300 font-semibold'
+                          : 'text-stone-200 hover:bg-[#4f3229] hover:text-white'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium">{opt.label}</span>
+                        <span className="text-[10px] text-stone-400">
+                          {opt.desc}
+                        </span>
+                      </div>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-amber-400 shrink-0 ml-1.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </header>
 
         {/* 聖經經文查詢框框置頂 (置頂在標題欄正下方) */}
@@ -360,7 +479,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   const val = (e.target as HTMLInputElement).value;
                   handleQueryChange(val);
                 }}
-                placeholder="輸入字詞（例如：烏鴉 或 耶穌 世人）"
+                placeholder={
+                  currentVersion === 'CUV'
+                    ? "輸入字詞（例如：烏鴉 或 耶穌 世人）"
+                    : currentVersion === 'WEB'
+                    ? "Enter words (e.g. love, light, God)"
+                    : "Entrez des mots (ex: amour, lumière, Dieu)"
+                }
                 className="w-full pl-2.5 pr-14 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
               />
 
@@ -429,7 +554,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           results.map((item) => {
             const isSelected = selectedResult?.id === item.id;
             const shortBook =
-              item.book.shortName[selectedVersion] || item.book.shortName.CUV;
+              (item.book.shortName as any)[currentVersion] || item.book.shortName.CUV;
 
             return (
               <div

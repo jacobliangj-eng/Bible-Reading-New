@@ -3,7 +3,7 @@ import { BIBLE_BOOKS } from '../data/bibleBooks';
 import { getCuratedSubtitle } from '../data/cuvSubtitles';
 
 // Translation mapping for HelloAO API
-const HELLOAO_TRANSLATIONS: Record<BibleVersion, string> = {
+const HELLOAO_TRANSLATIONS: Partial<Record<BibleVersion, string>> = {
   CUV: 'cmn_cuv',
   KJV: 'eng_kjv',
   LSG: 'fra_lsg',
@@ -75,6 +75,7 @@ if (typeof window !== 'undefined' && window.localStorage) {
         (key.startsWith('bible_v') ||
           key.startsWith('bible_cache_') ||
           key.startsWith('CUV_') ||
+          key.startsWith('WEB_') ||
           key.startsWith('KJV_') ||
           key.startsWith('LSG_') ||
           key.startsWith('cmn_'))
@@ -621,6 +622,56 @@ async function fetchFromFHL(bookId: string, chapter: number): Promise<Verse[] | 
 }
 
 /**
+ * Fetches English World English Bible (WEB) chapters.
+ * Primary: Bolls Life API (fast, reliable, 1-66 book index, public domain)
+ * Fallback: Bible-API (bible-api.com)
+ */
+async function fetchFromWEB(
+  bookId: string,
+  chapter: number
+): Promise<Verse[] | null> {
+  const book = BIBLE_BOOKS.find((b) => b.id === bookId);
+  const bookNum = book ? book.number : BOOK_ID_TO_NUMBER[bookId] || 1;
+  const bookName = book?.name.WEB || book?.name.KJV || 'Genesis';
+
+  // 1. Primary: Bolls Life API
+  try {
+    const res = await fetch(`https://bolls.life/get-chapter/WEB/${bookNum}/${chapter}/`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((item: any) => ({
+          chapter,
+          verse: Number(item.verse),
+          text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`[BibleService] Bolls WEB fetch failed for ${bookId} ${chapter}:`, err);
+  }
+
+  // 2. Fallback: Bible-API
+  try {
+    const res = await fetch(`https://bible-api.com/${encodeURIComponent(bookName)}+${chapter}?translation=web`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.verses) && data.verses.length > 0) {
+        return data.verses.map((v: any) => ({
+          chapter: Number(v.chapter),
+          verse: Number(v.verse),
+          text: (v.text || '').trim(),
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`[BibleService] Bible-API WEB fetch failed for ${bookId} ${chapter}:`, err);
+  }
+
+  return null;
+}
+
+/**
  * Main API function to fetch genuine Bible verses for any book, chapter, and translation version.
  * For CUV (國語和合本), it ALWAYS immediately downloads live from bibletool.konline.org
  * to provide authentic red-letter tagging for God and Jesus' words.
@@ -672,7 +723,12 @@ export async function fetchChapterVerses(
       }
     }
 
-    // 2. Primary HelloAO API for KJV/LSG, or offline fallback for CUV if network unreachable
+    // 3. For English WEB (World English Bible)
+    if (!verses && (version === 'WEB' || version === 'KJV')) {
+      verses = await fetchFromWEB(bookId, chapter);
+    }
+
+    // 4. Primary HelloAO API for LSG, or offline fallback for CUV if network unreachable
     if (!verses) {
       const transCode = HELLOAO_TRANSLATIONS[version] || 'cmn_cuv';
       verses = await fetchFromHelloAO(transCode, bookId, chapter);
@@ -766,8 +822,8 @@ function getOfflineFallbackVerses(
     let text = '';
     if (version === 'CUV') {
       text = `${bookName} 第 ${chapter} 章第 ${v} 節：主說：「凡仰望耶和華的人，你們都要壯膽，堅固你們的心。」`;
-    } else if (version === 'KJV') {
-      text = `${bookName} Chapter ${chapter}, verse ${v}: The LORD is my strength and my shield; my heart trusted in him, and I am helped.`;
+    } else if (version === 'WEB' || version === 'KJV') {
+      text = `${bookName} Chapter ${chapter}, verse ${v}: Yahweh is my strength and my shield; my heart has trusted in him, and I am helped.`;
     } else {
       text = `${bookName} Chapitre ${chapter}, verset ${v}: L'Éternel est ma force et mon bouclier; En lui mon cœur se confie.`;
     }
@@ -828,8 +884,8 @@ export async function searchBibleVerses(
 
   const cleanQ = trimmed.replace(/\s+/g, ' ').trim();
   let versionCode = 'unv';
-  if (version === 'KJV') {
-    versionCode = 'kjv';
+  if (version === 'WEB' || version === 'KJV') {
+    versionCode = 'web';
   }
 
   try {
@@ -898,6 +954,51 @@ export async function searchBibleVerses(
       }
     }
 
+    // Direct Bolls fallback for LSG or WEB if no records yet
+    if (!data || !Array.isArray(data.record) || data.record.length === 0) {
+      if (version === 'LSG') {
+        try {
+          const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`);
+          if (bollsRes.ok) {
+            const list = await bollsRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              data = {
+                status: 'success',
+                record: list.slice(0, 1000).map((item: any) => ({
+                  bid: item.book,
+                  chap: item.chapter,
+                  sec: item.verse,
+                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+                })),
+              };
+            }
+          }
+        } catch (err) {
+          console.warn('[searchBibleVerses] LSG Bolls direct fetch failed:', err);
+        }
+      } else if (version === 'WEB' || version === 'KJV') {
+        try {
+          const bollsRes = await fetch(`https://bolls.life/search/WEB/?search=${encodeURIComponent(cleanQ)}`);
+          if (bollsRes.ok) {
+            const list = await bollsRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              data = {
+                status: 'success',
+                record: list.slice(0, 1000).map((item: any) => ({
+                  bid: item.book,
+                  chap: item.chapter,
+                  sec: item.verse,
+                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+                })),
+              };
+            }
+          }
+        } catch (err) {
+          console.warn('[searchBibleVerses] WEB Bolls direct fetch failed:', err);
+        }
+      }
+    }
+
     if (!data || !Array.isArray(data.record)) {
       return [];
     }
@@ -915,8 +1016,10 @@ export async function searchBibleVerses(
         const found = BIBLE_BOOKS.find(
           (b) =>
             b.id.toLowerCase() === engLower ||
-            b.name.KJV.toLowerCase().startsWith(engLower) ||
-            b.shortName.KJV.toLowerCase() === engLower
+            (b.name.WEB && b.name.WEB.toLowerCase().startsWith(engLower)) ||
+            (b.name.KJV && b.name.KJV.toLowerCase().startsWith(engLower)) ||
+            (b.shortName.WEB && b.shortName.WEB.toLowerCase() === engLower) ||
+            (b.shortName.KJV && b.shortName.KJV.toLowerCase() === engLower)
         );
         if (found) {
           bookId = found.id;
@@ -935,6 +1038,15 @@ export async function searchBibleVerses(
         }
       }
 
+      // Match by book number (bid 1-66 from Bolls Life / FHL)
+      if (!bookId && item.bid) {
+        const num = Number(item.bid);
+        const found = BIBLE_BOOKS.find((b) => b.number === num);
+        if (found) {
+          bookId = found.id;
+        }
+      }
+
       const book = BIBLE_BOOKS.find((b) => b.id === bookId);
       if (!book) continue;
 
@@ -942,7 +1054,7 @@ export async function searchBibleVerses(
       const sec = Number(item.sec) || 1;
       const cleanText = (item.bible_text || '').trim();
 
-      const bookTitle = book.name[version] || book.name.CUV;
+      const bookTitle = (book.name as any)[version] || book.name.WEB || book.name.CUV;
       const referenceStr = `${bookTitle} ${chap}:${sec}`;
 
       results.push({

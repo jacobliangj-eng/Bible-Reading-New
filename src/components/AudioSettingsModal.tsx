@@ -82,9 +82,9 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
     window.speechSynthesis.cancel();
 
     let sampleText = '創世記第1章。神說：要有光，就有了光。';
-    if (selectedVersion === 'KJV') {
-      sampleText = 'Genesis, Chapter 1. In the beginning God created the heaven and the earth.';
-    } else if (selectedVersion === 'LBS') {
+    if (selectedVersion === 'WEB' || selectedVersion === 'KJV') {
+      sampleText = 'Genesis, Chapter 1. In the beginning, God created the heavens and the earth.';
+    } else if (selectedVersion === 'LSG') {
       sampleText = 'Genèse, Chapitre 1. Au commencement, Dieu créa les cieux et la terre.';
     } else {
       sampleText = fixChineseTTSPronunciation(sampleText);

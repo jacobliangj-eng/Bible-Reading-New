@@ -28,7 +28,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
   speechPitch = 1.0,
   selectedVoiceName = '',
 }) => {
-  const versionKeys: BibleVersion[] = ['CUV', 'KJV', 'LSG'];
+  const versionKeys: BibleVersion[] = ['CUV', 'WEB', 'LSG'];
 
   // Current Verse State
   const [currentVerse, setCurrentVerse] = useState<{ text: string; reference: string; rawVerse: DailyVerse }>(() =>
@@ -312,7 +312,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
         >
           <p
             className={`text-base md:text-lg font-serif italic text-amber-100 leading-relaxed group-hover:text-amber-200 transition-colors ${
-              selectedVersion === 'KJV' || selectedVersion === 'LSG' ? 'font-calibri' : ''
+              selectedVersion === 'WEB' || selectedVersion === 'KJV' || selectedVersion === 'LSG' ? 'font-calibri' : ''
             }`}
           >
             {currentVerse.text}
@@ -379,8 +379,8 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                       </span>
                     </div>
 
-                    <h4 className={`text-sm font-bold text-amber-100 group-hover:text-amber-300 transition-colors ${b.version === 'KJV' || b.version === 'LSG' ? 'font-calibri' : ''}`}>
-                      {b.version === 'KJV'
+                    <h4 className={`text-sm font-bold text-amber-100 group-hover:text-amber-300 transition-colors ${b.version === 'WEB' || b.version === 'KJV' || b.version === 'LSG' ? 'font-calibri' : ''}`}>
+                      {b.version === 'WEB' || b.version === 'KJV'
                         ? `${b.bookName} ${b.bookId === 'PSA' ? 'Psalm' : 'Chapter'} ${b.chapter}`
                         : b.version === 'LSG'
                         ? `${b.bookName} ${b.bookId === 'PSA' ? 'Psaume' : 'Chapitre'} ${b.chapter}`
@@ -393,7 +393,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
                     </h4>
 
                     {b.previewText && (
-                      <p className={`text-xs text-zinc-400 line-clamp-2 italic font-serif group-hover:text-amber-200/80 ${b.version === 'KJV' || b.version === 'LSG' ? 'font-calibri' : ''}`}>
+                      <p className={`text-xs text-zinc-400 line-clamp-2 italic font-serif group-hover:text-amber-200/80 ${b.version === 'WEB' || b.version === 'KJV' || b.version === 'LSG' ? 'font-calibri' : ''}`}>
                         {b.previewText}
                       </p>
                     )}
@@ -451,7 +451,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
               <div className="bg-zinc-950/90 p-3 rounded-xl border border-yellow-900/60 text-xs text-amber-200 font-serif">
                 <div className="font-bold text-amber-300 mb-1">
                   【{bookmarkToDelete.bookName}{' '}
-                  {bookmarkToDelete.version === 'KJV'
+                  {bookmarkToDelete.version === 'WEB' || bookmarkToDelete.version === 'KJV'
                     ? `${bookmarkToDelete.bookId === 'PSA' ? 'Psalm' : 'Chapter'} ${bookmarkToDelete.chapter}`
                     : bookmarkToDelete.version === 'LSG'
                     ? `${bookmarkToDelete.bookId === 'PSA' ? 'Psaume' : 'Chapitre'} ${bookmarkToDelete.chapter}`

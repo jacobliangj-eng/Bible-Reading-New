@@ -1,4 +1,4 @@
-export type BibleVersion = 'CUV' | 'KJV' | 'LSG';
+export type BibleVersion = 'CUV' | 'WEB' | 'LSG' | 'KJV';
 
 export interface VersionInfo {
   id: BibleVersion;
@@ -19,12 +19,14 @@ export interface BibleBook {
   chaptersCount: number;
   name: {
     CUV: string; // e.g., 創世記
-    KJV: string; // e.g., Genesis
+    WEB: string; // e.g., Genesis
+    KJV?: string;
     LSG: string; // e.g., Genèse
   };
   shortName: {
     CUV: string;
-    KJV: string;
+    WEB: string;
+    KJV?: string;
     LSG: string;
   };
 }

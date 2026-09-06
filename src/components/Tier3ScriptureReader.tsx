@@ -1087,7 +1087,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       const isChapterStart = index === 0 && verseObj.verse === 1;
       let speechText = '';
       if (isChapterStart) {
-        if (selectedVersion === 'KJV') {
+        if (selectedVersion === 'WEB' || selectedVersion === 'KJV') {
           speechText = `${bookName}, ${isPsalm ? 'Psalm' : 'Chapter'} ${verseObj.chapter}. ${verseObj.text}`;
         } else if (selectedVersion === 'LSG' || selectedVersion === 'LBS') {
           speechText = `${bookName}, ${isPsalm ? 'Psaume' : 'Chapitre'} ${verseObj.chapter}. ${verseObj.text}`;

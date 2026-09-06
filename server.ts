@@ -96,14 +96,46 @@ async function startServer() {
         return res.json({ status: 'success', record_count: 0, record: [] });
       }
 
-      // Map version to FHL version code
-      let versionCode = 'unv';
-      if (versionParam === 'KJV') {
-        versionCode = 'kjv';
-      }
-
       // Collapse multiple whitespace characters into single spaces for clean query matching
       const cleanQ = rawQ.replace(/\s+/g, ' ').trim();
+
+      // Handle French LSG search via Bolls Life (FRLSG)
+      if (versionParam === 'LSG') {
+        try {
+          const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json, text/plain, */*',
+            },
+          });
+          if (bollsRes.ok) {
+            const list = await bollsRes.json();
+            if (Array.isArray(list)) {
+              const records = list.slice(0, 1000).map((item: any) => ({
+                bid: item.book,
+                chap: item.chapter,
+                sec: item.verse,
+                bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+              }));
+              return res.json({
+                status: 'success',
+                record_count: records.length,
+                record: records,
+              });
+            }
+          }
+        } catch (lsgErr) {
+          console.warn('[Bible Search Proxy] Bolls LSG search failed:', lsgErr);
+        }
+        return res.json({ status: 'success', record_count: 0, record: [] });
+      }
+
+      // Map version to FHL version code
+      let versionCode = 'unv';
+      if (versionParam === 'WEB' || versionParam === 'KJV') {
+        versionCode = 'web';
+      }
+
       const targetUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=${versionCode}`;
       console.log(`[Bible Search Proxy] Querying: ${cleanQ} (${versionCode})`);
 
@@ -123,7 +155,7 @@ async function startServer() {
         return res.status(response.status).json({ error: 'Search upstream error' });
       }
 
-      const data = await response.json();
+      let data = await response.json();
 
       // If records > 500, FHL returns { status: "Fail: record count > 500", record_count: 1524 }
       // We automatically fetch all pages in parallel chunks of 500 (e.g. 耶穌 1524 條, 大衛 985 條)
@@ -155,6 +187,35 @@ async function startServer() {
         data.status = 'success';
         data.record = allRecords;
         data.record_count = allRecords.length;
+      }
+
+      // Fallback to Bolls Life WEB if FHL returned 0 results for English WEB
+      if ((versionParam === 'WEB' || versionParam === 'KJV') && (!data || !Array.isArray(data.record) || data.record.length === 0)) {
+        try {
+          const bollsWebRes = await fetch(`https://bolls.life/search/WEB/?search=${encodeURIComponent(cleanQ)}`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json, text/plain, */*',
+            },
+          });
+          if (bollsWebRes.ok) {
+            const list = await bollsWebRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              data = {
+                status: 'success',
+                record_count: list.length,
+                record: list.slice(0, 1000).map((item: any) => ({
+                  bid: item.book,
+                  chap: item.chapter,
+                  sec: item.verse,
+                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+                })),
+              };
+            }
+          }
+        } catch (webErr) {
+          console.warn('[Bible Search Proxy] Bolls WEB fallback failed:', webErr);
+        }
       }
 
       // Normalize God terms in records: '上帝' -> '　神'

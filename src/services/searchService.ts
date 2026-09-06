@@ -58,8 +58,8 @@ export function parseScriptureReference(input: string, version: BibleVersion = '
     const idMatch = b.id.toLowerCase() === rawBookStr;
     const cuvName = b.name.CUV.toLowerCase();
     const cuvShort = b.shortName.CUV.toLowerCase();
-    const kjvName = b.name.KJV.toLowerCase();
-    const kjvShort = b.shortName.KJV.toLowerCase();
+    const webName = (b.name.WEB || b.name.KJV || '').toLowerCase();
+    const webShort = (b.shortName.WEB || b.shortName.KJV || '').toLowerCase();
     const lsgName = b.name.LSG.toLowerCase();
     const lsgShort = b.shortName.LSG.toLowerCase();
 
@@ -71,12 +71,12 @@ export function parseScriptureReference(input: string, version: BibleVersion = '
       idMatch ||
       rawBookStr === cuvName ||
       rawBookStr === cuvShort ||
-      rawBookStr === kjvName ||
-      rawBookStr === kjvShort ||
+      rawBookStr === webName ||
+      rawBookStr === webShort ||
       rawBookStr === lsgName ||
       rawBookStr === lsgShort ||
       cuvName.startsWith(rawBookStr) ||
-      kjvName.startsWith(rawBookStr)
+      webName.startsWith(rawBookStr)
     );
   });
 
@@ -123,7 +123,7 @@ export async function searchScriptureByKeyword(
 
   // 1. Try Online Search with proxy or direct FHL API
   try {
-    const fhlVersion = version === 'KJV' ? 'kjv' : 'unv';
+    const fhlVersion = version === 'WEB' || version === 'KJV' ? 'web' : 'unv';
     const fhlQuery = query === '上帝' ? '神' : query;
     const proxyUrl = `/api/bible/search?q=${encodeURIComponent(fhlQuery)}&version=${fhlVersion}`;
 
@@ -160,7 +160,10 @@ export async function searchScriptureByKeyword(
 
           if (!matchedBook && item.engs) {
             matchedBook = BIBLE_BOOKS.find(
-              (b) => b.id.toLowerCase() === item.engs.toLowerCase() || b.shortName.KJV.toLowerCase() === item.engs.toLowerCase()
+              (b) =>
+                b.id.toLowerCase() === item.engs.toLowerCase() ||
+                (b.shortName.WEB && b.shortName.WEB.toLowerCase() === item.engs.toLowerCase()) ||
+                (b.shortName.KJV && b.shortName.KJV.toLowerCase() === item.engs.toLowerCase())
             );
           }
 
@@ -174,7 +177,7 @@ export async function searchScriptureByKeyword(
               seenIds.add(resultKey);
               results.push({
                 bookId: matchedBook.id,
-                bookName: matchedBook.name[version] || matchedBook.name.CUV,
+                bookName: (matchedBook.name as any)[version] || matchedBook.name.WEB || matchedBook.name.CUV,
                 bookNumber: matchedBook.number,
                 testament: matchedBook.testament,
                 chapter: chap,
