@@ -156,12 +156,17 @@ body[data-font="kai"] {
   font-family: var(--font-kai) !important;
 }
 
-/* Dynamic Scripture Reading Font */
+/* Dynamic Scripture Reading Font - 確保經文字型維持正常粗細 (400 / normal)，不加粗 */
 .scripture-font,
+.verse-text-content,
 .verse-text-content p,
 .verse-text-content span.select-text,
-.scripture-verse-text {
+.scripture-verse-text,
+.verse-red-letter {
   font-family: var(--app-scripture-font) !important;
+  font-weight: 400 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {

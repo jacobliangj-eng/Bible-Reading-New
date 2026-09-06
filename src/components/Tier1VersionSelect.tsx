@@ -311,7 +311,7 @@ export const Tier1VersionSelect: React.FC<Tier1VersionSelectProps> = ({
           title="點擊經文朗讀/停止"
         >
           <p
-            className={`text-base md:text-lg font-serif italic text-amber-100 leading-relaxed group-hover:text-amber-200 transition-colors ${
+            className={`text-base md:text-lg font-serif font-normal italic text-amber-100 leading-relaxed group-hover:text-amber-200 transition-colors ${
               selectedVersion === 'WEB' || selectedVersion === 'KJV' || selectedVersion === 'LSG' ? 'font-calibri' : ''
             }`}
           >

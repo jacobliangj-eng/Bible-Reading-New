@@ -246,8 +246,8 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
                     )}
                   </div>
                   <p
-                    className={`text-sm sm:text-base my-1 tracking-wide ${fontItem.fontClass} ${
-                      isSelected ? 'text-amber-100 font-semibold' : 'text-zinc-400 group-hover:text-zinc-200'
+                    className={`text-sm sm:text-base my-1 tracking-wide ${fontItem.fontClass} font-normal ${
+                      isSelected ? 'text-amber-100' : 'text-zinc-400 group-hover:text-zinc-200'
                     }`}
                   >
                     {fontItem.sample}

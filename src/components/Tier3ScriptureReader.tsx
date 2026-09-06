@@ -1865,7 +1865,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   {sectionSubtitle && (
                     <div className="pt-2 pb-1 px-1 mt-1 mb-0.5 flex items-center gap-2 select-text">
                       <span className="w-1.5 h-3 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs select-none"></span>
-                      <h4 className={`text-amber-900 scripture-font ${getFontFamilyClass()} font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5 select-text cursor-text`}>
+                      <h4 className={`text-amber-900 scripture-font ${getFontFamilyClass()} font-semibold text-xs md:text-sm tracking-wide flex items-center gap-1.5 select-text cursor-text`}>
                         {normalizeGodTerms(sectionSubtitle)}
                       </h4>
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-400/80 via-amber-200/50 to-transparent select-none"></div>
@@ -1928,14 +1928,14 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                           {/* Verse Text (單擊切換細黑色虛線選取，亦可長按任意反白拖曳選取) */}
                           <div className="flex-1 min-w-0 select-text cursor-pointer verse-text-content">
                             <p
-                              className={`scripture-font ${getFontFamilyClass()} tracking-normal transition-all select-text cursor-pointer ${getFontSizeClass()} ${
+                              className={`scripture-font ${getFontFamilyClass()} tracking-normal font-normal transition-all select-text cursor-pointer ${getFontSizeClass()} ${
                                 isUnderlined
                                   ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]'
                                   : ''
                               } ${
                                 isActive
-                                  ? 'text-zinc-950 font-medium'
-                                  : 'text-zinc-800 group-hover:text-zinc-950'
+                                  ? 'text-zinc-950 font-normal'
+                                  : 'text-zinc-800 group-hover:text-zinc-950 font-normal'
                               }`}
                             >
                               {(() => {
@@ -1949,7 +1949,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                   return seg.isRed ? (
                                     <span
                                       key={sIdx}
-                                      className={`verse-red-letter text-red-600 font-medium select-text cursor-pointer ${
+                                      className={`verse-red-letter text-red-600 font-normal select-text cursor-pointer ${
                                         isUnderlined ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]' : ''
                                       }`}
                                       style={{ color: '#dc2626' }}
@@ -1957,7 +1957,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                       {segText}
                                     </span>
                                   ) : (
-                                    <span key={sIdx} className="select-text cursor-pointer">
+                                    <span key={sIdx} className="select-text cursor-pointer font-normal">
                                       {segText}
                                     </span>
                                   );
@@ -2019,7 +2019,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     return seg.isRed ? (
                       <span
                         key={sIdx}
-                        className="verse-red-letter text-red-600 font-medium"
+                        className="verse-red-letter text-red-600 font-normal"
                         style={{ color: '#dc2626' }}
                       >
                         {segText}
