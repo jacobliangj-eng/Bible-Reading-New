@@ -826,14 +826,49 @@ export async function searchBibleVerses(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
+  const cleanQ = trimmed.replace(/\s+/g, ' ').trim();
+  let versionCode = 'unv';
+  if (version === 'KJV') {
+    versionCode = 'kjv';
+  }
+
   try {
-    const url = `/api/bible/search?q=${encodeURIComponent(trimmed)}&version=${encodeURIComponent(version)}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Search request failed with status: ${res.status}`);
+    let data: any = null;
+
+    // 1. Direct fetch to bible.fhl.net (supports CORS for all origins, ensuring full mobile compatibility)
+    try {
+      const directUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=${versionCode}`;
+      const directRes = await fetch(directUrl, {
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+        },
+      });
+      if (directRes.ok) {
+        const text = await directRes.text();
+        if (text.startsWith('{') || text.startsWith('[')) {
+          data = JSON.parse(text);
+        }
+      }
+    } catch (directErr) {
+      console.warn('[searchBibleVerses] Direct fetch failed or restricted, trying proxy fallback:', directErr);
     }
 
-    const data = await res.json();
+    // 2. Fallback to local server proxy if direct fetch did not yield records
+    if (!data || !Array.isArray(data.record)) {
+      try {
+        const proxyUrl = `/api/bible/search?q=${encodeURIComponent(cleanQ)}&version=${encodeURIComponent(version)}`;
+        const proxyRes = await fetch(proxyUrl);
+        if (proxyRes.ok) {
+          const text = await proxyRes.text();
+          if (text.startsWith('{') || text.startsWith('[')) {
+            data = JSON.parse(text);
+          }
+        }
+      } catch (proxyErr) {
+        console.warn('[searchBibleVerses] Proxy fetch failed:', proxyErr);
+      }
+    }
+
     if (!data || !Array.isArray(data.record)) {
       return [];
     }

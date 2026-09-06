@@ -4,6 +4,7 @@ import {
   X,
   Loader2,
   CheckCircle2,
+  Search,
 } from 'lucide-react';
 import { BibleBook, BibleVersion } from '../types';
 import { searchBibleVerses, SearchVerseItem } from '../services/bibleService';
@@ -45,6 +46,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
   // Perform search
   const handleExecuteSearch = async (qToSearch?: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
     const raw = typeof qToSearch === 'string' ? qToSearch : query;
     const cleanQ = raw.trim();
     if (!cleanQ) {
@@ -62,7 +67,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     try {
       const data = await searchBibleVerses(cleanQ, selectedVersion);
       setResults(data);
-      if (data.length > 0) {
+      if (data && data.length > 0) {
         setSelectedResultId(data[0].id);
       } else {
         setSelectedResultId(null);
@@ -92,20 +97,18 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
     debounceTimerRef.current = setTimeout(() => {
       handleExecuteSearch(val);
-    }, 380);
+    }, 450);
   };
 
-  // Auto focus & initial search on open if not searched yet
+  // Auto focus & initial search on open
   useEffect(() => {
     if (isOpen) {
+      if (query.trim()) {
+        handleExecuteSearch(query.trim());
+      }
       setTimeout(() => {
         inputRef.current?.focus();
-        inputRef.current?.select();
-      }, 80);
-
-      if (!hasSearched && query) {
-        handleExecuteSearch(query);
-      }
+      }, 100);
     }
     return () => {
       if (debounceTimerRef.current) {
@@ -271,14 +274,22 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         <header className="bg-[#593E36] text-white h-11 px-3.5 flex items-center justify-between shrink-0 select-none shadow-sm">
           <button
             id="search-modal-back-btn"
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 -ml-1.5 flex items-center justify-center text-white/90 hover:text-white active:scale-95 transition-all"
+            className="w-8 h-8 -ml-1.5 flex items-center justify-center text-white/90 hover:text-white active:scale-95 transition-all touch-manipulation cursor-pointer"
             title="返回"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          <span className="font-medium text-base tracking-wider text-white">
+          <span
+            onClick={() => {
+              handleExecuteSearch(query);
+              inputRef.current?.blur();
+            }}
+            className="font-medium text-base tracking-wider text-white cursor-pointer select-none touch-manipulation"
+            title="點擊執行搜尋"
+          >
             搜索
           </span>
 
@@ -292,26 +303,54 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleExecuteSearch();
+              handleExecuteSearch(query);
+              inputRef.current?.blur();
             }}
+            action="#"
             className="flex items-center border border-[#8d6e63]/70 rounded-xs overflow-hidden shadow-xs bg-[#fbf7eb]"
           >
-            {/* 左側「全書」標籤塊 */}
-            <div className="bg-[#6d4c41] text-white px-3.5 py-1.5 text-sm font-medium shrink-0 flex items-center justify-center border-r border-[#8d6e63]/70 select-none">
+            {/* 左側「全書」標籤塊（手機上點選亦可立即執行查詢） */}
+            <button
+              type="button"
+              onClick={() => {
+                handleExecuteSearch(query);
+                inputRef.current?.blur();
+              }}
+              className="bg-[#6d4c41] hover:bg-[#5d4037] active:bg-[#4e342e] text-white px-3.5 py-1.5 text-sm font-medium shrink-0 flex items-center justify-center border-r border-[#8d6e63]/70 select-none touch-manipulation cursor-pointer transition-colors"
+              title="點選執行全書查詢"
+            >
               全書
-            </div>
+            </button>
 
             {/* 右側輸入欄位 */}
             <div className="relative flex-1 flex items-center">
               <input
                 ref={inputRef}
                 id="search-combination-input"
-                type="text"
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={query}
                 onChange={(e) => handleQueryChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleExecuteSearch(query);
+                    inputRef.current?.blur();
+                  }
+                }}
+                onCompositionEnd={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  handleQueryChange(val);
+                }}
                 placeholder="輸入字詞（例如：烏鴉 或 耶穌 世人）"
-                className="w-full px-2.5 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
+                className="w-full pl-2.5 pr-8 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
               />
+
+              {/* 清除按鈕 */}
               {query && (
                 <button
                   type="button"
@@ -321,12 +360,26 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     setHasSearched(false);
                     inputRef.current?.focus();
                   }}
-                  className="pr-2 text-stone-400 hover:text-stone-700"
+                  className="pr-1.5 text-stone-400 hover:text-stone-700 active:scale-90 touch-manipulation cursor-pointer"
                   title="清除"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
+
+              {/* 手機即點搜尋按鈕（小放大鏡圖示，點擊立即執行） */}
+              <button
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleExecuteSearch(query);
+                  inputRef.current?.blur();
+                }}
+                className="pr-2.5 pl-1 py-1 text-[#6d4c41] hover:text-[#4e342e] active:scale-90 transition-transform touch-manipulation cursor-pointer flex items-center justify-center"
+                title="執行搜尋"
+              >
+                <Search className="w-4 h-4 shrink-0" />
+              </button>
             </div>
           </form>
         </div>
@@ -368,7 +421,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                   id={`search-result-item-${item.id}`}
                   onClick={() => setSelectedResultId(item.id)}
                   onDoubleClick={() => handleJump(item)}
-                  className={`text-sm sm:text-[15px] leading-relaxed cursor-pointer select-none transition-colors py-1 px-1 rounded-sm ${
+                  className={`text-sm sm:text-[15px] leading-relaxed cursor-pointer select-none transition-colors py-1.5 px-1.5 rounded-sm touch-manipulation ${
                     isSelected
                       ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
                       : 'hover:bg-amber-100/30'
@@ -396,9 +449,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           {/* 跳轉按鈕 */}
           <button
             id="search-ctrl-jump"
+            type="button"
             onClick={() => handleJump()}
             disabled={!selectedResult}
-            className="flex-1 h-full flex items-center justify-center text-white/95 hover:text-white active:bg-white/10 text-xs sm:text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 h-full flex items-center justify-center text-white/95 hover:text-white active:bg-white/10 text-xs sm:text-sm font-medium transition-colors touch-manipulation cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="跳轉至該卷書經文閱讀 (TIER 3)"
           >
             跳轉
@@ -410,9 +464,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           {/* 複製按鈕 */}
           <button
             id="search-ctrl-copy"
+            type="button"
             onClick={handleCopy}
             disabled={!selectedResult}
-            className="flex-1 h-full flex items-center justify-center text-white/95 hover:text-white active:bg-white/10 text-xs sm:text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 h-full flex items-center justify-center text-white/95 hover:text-white active:bg-white/10 text-xs sm:text-sm font-medium transition-colors touch-manipulation cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="複製選取的經文"
           >
             複製
@@ -424,9 +479,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           {/* 分享按鈕 */}
           <button
             id="search-ctrl-share"
+            type="button"
             onClick={handleShare}
             disabled={!selectedResult}
-            className="flex-1 h-full flex items-center justify-center text-white/95 hover:text-white active:bg-white/10 text-xs sm:text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 h-full flex items-center justify-center text-white/95 hover:text-white active:bg-white/10 text-xs sm:text-sm font-medium transition-colors touch-manipulation cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             title="分享選取的經文至其他 APP"
           >
             分享

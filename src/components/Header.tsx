@@ -141,15 +141,16 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* 查詢 Button (only shown in TIER 2 and TIER 3) */}
-          {currentTier !== 'TIER1' && onOpenSearch && (
+          {/* 查詢 Button (available on all tiers for immediate access on mobile and desktop) */}
+          {onOpenSearch && (
             <button
               id="header-search-btn"
+              type="button"
               onClick={onOpenSearch}
-              className="px-2.5 py-1 rounded-lg text-xs font-bold btn-gold flex items-center gap-1 shadow-md shadow-amber-500/20"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold btn-gold flex items-center gap-1 shadow-md shadow-amber-500/20 touch-manipulation cursor-pointer active:scale-95"
               title="聖經經文組合字串查詢"
             >
-              <Search className="w-3.5 h-3.5" />
+              <Search className="w-3.5 h-3.5 shrink-0" />
               <span>查詢</span>
             </button>
           )}
