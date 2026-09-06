@@ -128,8 +128,8 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
                     onClick={() => handleChapterClick(ch)}
                     className={`h-16 sm:h-20 flex items-center justify-center cursor-pointer transition-all active:scale-95 select-none ${
                       isSelected
-                        ? 'bg-[#fedac0] text-zinc-950 font-bold'
-                        : 'bg-[#f7f5dc] text-zinc-900 font-medium hover:bg-[#ede9cb]'
+                        ? 'bg-[#fedac0] text-zinc-950 font-normal'
+                        : 'bg-[#f7f5dc] text-zinc-900 font-normal hover:bg-[#ede9cb]'
                     }`}
                   >
                     <span className="text-xl sm:text-2xl font-normal">{ch}</span>
@@ -185,11 +185,11 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
                         onClick={() => handleBookClick(book)}
                         className={`h-16 sm:h-20 flex flex-col items-center justify-center p-1 cursor-pointer transition-all active:scale-95 ${
                           isSelected
-                            ? 'bg-[#fedac0] text-zinc-950 font-bold'
+                            ? 'bg-[#fedac0] text-zinc-950 font-normal'
                             : 'bg-[#f7f5dc] text-zinc-900 hover:bg-[#ede9cb]'
                         }`}
                       >
-                        <span className="text-lg sm:text-xl font-bold leading-tight">
+                        <span className="text-lg sm:text-xl font-normal leading-tight">
                           {book.shortName[selectedVersion]}
                         </span>
                         <span className="text-[11px] sm:text-xs text-zinc-800 truncate text-center font-normal mt-0.5 max-w-full px-0.5">
@@ -231,11 +231,11 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
                       onClick={() => handleBookClick(book)}
                       className={`h-16 sm:h-20 flex flex-col items-center justify-center p-1 cursor-pointer transition-all active:scale-95 ${
                         isSelected
-                          ? 'bg-[#fedac0] text-zinc-950 font-bold'
+                          ? 'bg-[#fedac0] text-zinc-950 font-normal'
                           : 'bg-[#f7f5dc] text-zinc-900 hover:bg-[#ede9cb]'
                       }`}
                     >
-                      <span className="text-lg sm:text-xl font-bold leading-tight">
+                      <span className="text-lg sm:text-xl font-normal leading-tight">
                         {book.shortName[selectedVersion]}
                       </span>
                       <span className="text-[11px] sm:text-xs text-zinc-800 truncate text-center font-normal mt-0.5 max-w-full px-0.5">
@@ -276,11 +276,11 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
                       onClick={() => handleBookClick(book)}
                       className={`h-16 sm:h-20 flex flex-col items-center justify-center p-1 cursor-pointer transition-all active:scale-95 ${
                         isSelected
-                          ? 'bg-[#fedac0] text-zinc-950 font-bold'
+                          ? 'bg-[#fedac0] text-zinc-950 font-normal'
                           : 'bg-[#f7f5dc] text-zinc-900 hover:bg-[#ede9cb]'
                       }`}
                     >
-                      <span className="text-lg sm:text-xl font-bold leading-tight">
+                      <span className="text-lg sm:text-xl font-normal leading-tight">
                         {book.shortName[selectedVersion]}
                       </span>
                       <span className="text-[11px] sm:text-xs text-zinc-800 truncate text-center font-normal mt-0.5 max-w-full px-0.5">
