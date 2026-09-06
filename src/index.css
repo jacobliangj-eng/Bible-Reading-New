@@ -129,6 +129,7 @@
   --font-kai: 'LXGW WenKai TC', 'Kaiti TC', 'BiauKai', 'DFKai-SB', 'STKaiti', 'KaiTi', '楷體', '楷体', 'Noto Serif TC', cursive, serif;
 
   --app-scripture-font: var(--font-sans);
+  --app-scripture-weight: 400;
 }
 
 body[data-font="sans"] {
@@ -141,6 +142,14 @@ body[data-font="serif"] {
 
 body[data-font="kai"] {
   --app-scripture-font: var(--font-kai);
+}
+
+body[data-scripture-bold="true"] {
+  --app-scripture-weight: 700;
+}
+
+body[data-scripture-bold="false"] {
+  --app-scripture-weight: 400;
 }
 
 /* Explicit font family preview classes */
@@ -156,7 +165,7 @@ body[data-font="kai"] {
   font-family: var(--font-kai) !important;
 }
 
-/* Dynamic Scripture Reading Font - 確保經文字型維持正常粗細 (400 / normal)，不加粗 */
+/* Dynamic Scripture Reading Font */
 .scripture-font,
 .verse-text-content,
 .verse-text-content p,
@@ -164,7 +173,7 @@ body[data-font="kai"] {
 .scripture-verse-text,
 .verse-red-letter {
   font-family: var(--app-scripture-font) !important;
-  font-weight: 400 !important;
+  font-weight: var(--app-scripture-weight, 400) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

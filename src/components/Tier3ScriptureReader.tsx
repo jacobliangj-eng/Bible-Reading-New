@@ -45,6 +45,8 @@ interface Tier3ScriptureReaderProps {
   fontSize?: 'normal' | 'large' | 'xlarge';
   setFontSize?: (size: 'normal' | 'large' | 'xlarge') => void;
   fontFamily?: FontFamily;
+  isScriptureBold?: boolean;
+  isBookSelectorBold?: boolean;
   selectedVoiceName?: string;
   autoStartPlayback?: boolean;
   isFromBookmark?: boolean;
@@ -69,6 +71,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   fontSize: propFontSize,
   setFontSize: propSetFontSize,
   fontFamily = 'sans',
+  isScriptureBold = false,
+  isBookSelectorBold = false,
   selectedVoiceName = '',
   autoStartPlayback = false,
   isFromBookmark = false,
@@ -1928,14 +1932,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                           {/* Verse Text (單擊切換細黑色虛線選取，亦可長按任意反白拖曳選取) */}
                           <div className="flex-1 min-w-0 select-text cursor-pointer verse-text-content">
                             <p
-                              className={`scripture-font ${getFontFamilyClass()} tracking-normal font-normal transition-all select-text cursor-pointer ${getFontSizeClass()} ${
+                              className={`scripture-font ${getFontFamilyClass()} tracking-normal ${
+                                isScriptureBold ? 'font-bold' : 'font-normal'
+                              } transition-all select-text cursor-pointer ${getFontSizeClass()} ${
                                 isUnderlined
                                   ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]'
                                   : ''
                               } ${
                                 isActive
-                                  ? 'text-zinc-950 font-normal'
-                                  : 'text-zinc-800 group-hover:text-zinc-950 font-normal'
+                                  ? 'text-zinc-950'
+                                  : 'text-zinc-800 group-hover:text-zinc-950'
                               }`}
                             >
                               {(() => {
@@ -1949,7 +1955,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                   return seg.isRed ? (
                                     <span
                                       key={sIdx}
-                                      className={`verse-red-letter text-red-600 font-normal select-text cursor-pointer ${
+                                      className={`verse-red-letter text-red-600 ${
+                                        isScriptureBold ? 'font-bold' : 'font-normal'
+                                      } select-text cursor-pointer ${
                                         isUnderlined ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]' : ''
                                       }`}
                                       style={{ color: '#dc2626' }}
@@ -1957,7 +1965,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                                       {segText}
                                     </span>
                                   ) : (
-                                    <span key={sIdx} className="select-text cursor-pointer font-normal">
+                                    <span
+                                      key={sIdx}
+                                      className={`select-text cursor-pointer ${
+                                        isScriptureBold ? 'font-bold' : 'font-normal'
+                                      }`}
+                                    >
                                       {segText}
                                     </span>
                                   );
@@ -2004,7 +2017,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
             <div className="space-y-1.5">
               <p className="text-xs text-yellow-500/80 font-medium">是否要複製以下經文？</p>
-              <div className={`bg-white p-3.5 rounded-xl border border-amber-300/80 text-xs md:text-sm text-zinc-900 leading-relaxed scripture-font ${getFontFamilyClass()} max-h-48 overflow-y-auto shadow-inner`}>
+              <div className={`bg-white p-3.5 rounded-xl border border-amber-300/80 text-xs md:text-sm text-zinc-900 leading-relaxed scripture-font ${getFontFamilyClass()} ${isScriptureBold ? 'font-bold' : 'font-normal'} max-h-48 overflow-y-auto shadow-inner`}>
                 <span className="font-bold text-amber-800 mr-1.5">
                   {bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}
                 </span>
@@ -2019,13 +2032,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                     return seg.isRed ? (
                       <span
                         key={sIdx}
-                        className="verse-red-letter text-red-600 font-normal"
+                        className={`verse-red-letter text-red-600 ${isScriptureBold ? 'font-bold' : 'font-normal'}`}
                         style={{ color: '#dc2626' }}
                       >
                         {segText}
                       </span>
                     ) : (
-                      <span key={sIdx}>{segText}</span>
+                      <span key={sIdx} className={isScriptureBold ? 'font-bold' : 'font-normal'}>{segText}</span>
                     );
                   });
                 })()}
@@ -2089,6 +2102,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           currentBook={selectedBook}
           currentChapter={viewChapter}
           isModal={true}
+          isBookSelectorBold={isBookSelectorBold}
           onBack={() => setIsBookChapterModalOpen(false)}
           onSelectChapter={(book, chapter) => {
             setIsBookChapterModalOpen(false);

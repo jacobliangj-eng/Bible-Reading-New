@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders, Timer, Clock, Type } from 'lucide-react';
+import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders, Timer, Clock, Type, Bold } from 'lucide-react';
 import { BibleVersion, FontFamily } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
@@ -16,6 +16,10 @@ interface AudioSettingsModalProps {
   onFontSizeChange?: (size: 'normal' | 'large' | 'xlarge') => void;
   fontFamily?: FontFamily;
   onFontFamilyChange?: (font: FontFamily) => void;
+  isScriptureBold?: boolean;
+  onScriptureBoldChange?: (bold: boolean) => void;
+  isBookSelectorBold?: boolean;
+  onBookSelectorBoldChange?: (bold: boolean) => void;
   selectedVoiceName?: string;
   onVoiceNameChange?: (voiceName: string) => void;
   isNightMode?: boolean;
@@ -36,6 +40,10 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onFontSizeChange,
   fontFamily = 'sans',
   onFontFamilyChange,
+  isScriptureBold = false,
+  onScriptureBoldChange,
+  isBookSelectorBold = false,
+  onBookSelectorBoldChange,
   selectedVoiceName = '',
   onVoiceNameChange,
   isNightMode = false,
@@ -258,6 +266,89 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* 字體加粗設定 (經文閱讀與書卷選擇頁面獨立設定) */}
+        <div className="bg-zinc-900/90 p-3.5 rounded-xl border border-yellow-800/50 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-yellow-950 border border-yellow-700/50 flex items-center justify-center text-amber-400 shrink-0">
+              <Bold className="w-4 h-4 text-amber-300" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-amber-200 block">
+                字體加粗設定 (Font Weight)
+              </label>
+              <p className="text-[10px] text-zinc-400 leading-tight">
+                分別設定經文閱讀與書卷選擇頁面之字重，自由選擇常規或加粗
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {/* 選項一：經文字體加粗 */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-950/80 border border-yellow-900/40">
+              <div className="pr-2">
+                <span className="text-xs font-bold text-amber-100 block">經文字體加粗</span>
+                <span className="text-[10px] text-zinc-400">朗讀與研讀頁面的經文內容字重</span>
+              </div>
+              <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-yellow-800/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onScriptureBoldChange && onScriptureBoldChange(false)}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-all cursor-pointer ${
+                    !isScriptureBold
+                      ? 'bg-amber-500 text-black font-bold shadow-xs'
+                      : 'text-zinc-400 hover:text-amber-200 font-normal'
+                  }`}
+                >
+                  常規
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onScriptureBoldChange && onScriptureBoldChange(true)}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-all cursor-pointer ${
+                    isScriptureBold
+                      ? 'bg-amber-500 text-black font-bold shadow-xs'
+                      : 'text-zinc-400 hover:text-amber-200 font-normal'
+                  }`}
+                >
+                  加粗
+                </button>
+              </div>
+            </div>
+
+            {/* 選項二：書卷選擇頁面字體加粗 */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-950/80 border border-yellow-900/40">
+              <div className="pr-2">
+                <span className="text-xs font-bold text-amber-100 block">書卷選擇頁面字體加粗</span>
+                <span className="text-[10px] text-zinc-400">第二層書卷簡稱與章節清單字重</span>
+              </div>
+              <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-yellow-800/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onBookSelectorBoldChange && onBookSelectorBoldChange(false)}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-all cursor-pointer ${
+                    !isBookSelectorBold
+                      ? 'bg-amber-500 text-black font-bold shadow-xs'
+                      : 'text-zinc-400 hover:text-amber-200 font-normal'
+                  }`}
+                >
+                  常規
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBookSelectorBoldChange && onBookSelectorBoldChange(true)}
+                  className={`px-2.5 py-1 text-xs rounded-md transition-all cursor-pointer ${
+                    isBookSelectorBold
+                      ? 'bg-amber-500 text-black font-bold shadow-xs'
+                      : 'text-zinc-400 hover:text-amber-200 font-normal'
+                  }`}
+                >
+                  加粗
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

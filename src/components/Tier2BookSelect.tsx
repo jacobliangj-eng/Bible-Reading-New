@@ -7,6 +7,7 @@ interface Tier2BookSelectProps {
   onSelectBook: (book: BibleBook, chapter?: number) => void;
   onGoHome: () => void;
   initialBook?: BibleBook;
+  isBookSelectorBold?: boolean;
 }
 
 export const Tier2BookSelect: React.FC<Tier2BookSelectProps> = ({
@@ -14,6 +15,7 @@ export const Tier2BookSelect: React.FC<Tier2BookSelectProps> = ({
   onSelectBook,
   onGoHome,
   initialBook,
+  isBookSelectorBold = false,
 }) => {
   return (
     <div className="w-full min-h-[85vh] flex flex-col justify-start items-center py-2 sm:py-4 px-1 sm:px-4">
@@ -25,6 +27,7 @@ export const Tier2BookSelect: React.FC<Tier2BookSelectProps> = ({
         onSelectChapter={(book, chapter) => onSelectBook(book, chapter)}
         onBack={onGoHome}
         isModal={false}
+        isBookSelectorBold={isBookSelectorBold}
       />
     </div>
   );

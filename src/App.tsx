@@ -83,6 +83,35 @@ export default function App() {
     }
   }, [fontFamily]);
 
+  // 經文字體粗細設定 (預設常規 false，使用者可在設定中切換加粗)
+  const [isScriptureBold, setIsScriptureBold] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('bible_scripture_bold') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bible_scripture_bold', String(isScriptureBold));
+      document.body.setAttribute('data-scripture-bold', String(isScriptureBold));
+    }
+  }, [isScriptureBold]);
+
+  // 書卷選擇頁面字體粗細設定 (預設常規 false，使用者可在設定中切換加粗)
+  const [isBookSelectorBold, setIsBookSelectorBold] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('bible_book_selector_bold') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bible_book_selector_bold', String(isBookSelectorBold));
+    }
+  }, [isBookSelectorBold]);
+
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
   const [isNightMode, setIsNightMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -361,6 +390,7 @@ export default function App() {
             onSelectBook={handleSelectBook}
             onGoHome={handleGoHome}
             initialBook={selectedBook || undefined}
+            isBookSelectorBold={isBookSelectorBold}
           />
         )}
 
@@ -385,6 +415,8 @@ export default function App() {
             fontSize={fontSize}
             setFontSize={setFontSize}
             fontFamily={fontFamily}
+            isScriptureBold={isScriptureBold}
+            isBookSelectorBold={isBookSelectorBold}
             selectedVoiceName={selectedVoiceName}
             autoStartPlayback={autoStartPlayback}
             isFromBookmark={isFromBookmark}
@@ -406,6 +438,10 @@ export default function App() {
         onFontSizeChange={setFontSize}
         fontFamily={fontFamily}
         onFontFamilyChange={setFontFamily}
+        isScriptureBold={isScriptureBold}
+        onScriptureBoldChange={setIsScriptureBold}
+        isBookSelectorBold={isBookSelectorBold}
+        onBookSelectorBoldChange={setIsBookSelectorBold}
         selectedVoiceName={selectedVoiceName}
         onVoiceNameChange={setSelectedVoiceName}
         isNightMode={isNightMode}
