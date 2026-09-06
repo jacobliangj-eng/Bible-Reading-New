@@ -1629,7 +1629,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   return (
-    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 pt-0 pb-4 space-y-2 sm:space-y-2.5">
+    <div className="w-full max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] mx-auto px-1 sm:px-2 md:px-3 pt-0 pb-16 space-y-2 sm:space-y-2.5">
       {/* Hidden Audio Element for FHL MP3 Playback */}
       <audio
         ref={audioRef}
@@ -1962,7 +1962,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         )}
 
         {/* Bottom Chapter Navigation Bar (每章最尾端的右邊，始終顯示在同一列) */}
-        <div className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap">
+      </div>
+
+      {/* Scripture Navigation Footer Container */}
+      <div className="fixed bottom-0 left-0 w-full z-30 bg-white/95 backdrop-blur-md border-t border-amber-300/80 shadow-[0_-4px_16px_rgba(0,0,0,0.12)] py-2 px-3 sm:px-6 flex items-center justify-end flex-nowrap">
+        <div className="max-w-[99%] xl:max-w-[1500px] 2xl:max-w-[1700px] w-full mx-auto flex items-center justify-end flex-nowrap">
           {renderChapterNavBar('bottom')}
         </div>
       </div>
