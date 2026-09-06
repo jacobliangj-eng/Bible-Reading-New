@@ -649,13 +649,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           setActiveVerses(resultVerses);
           
           let targetIndex = 0;
-          if (initialVerseNumbers && initialVerseNumbers.length > 0) {
+          if (viewChapter === initialChapter && initialVerseNumbers && initialVerseNumbers.length > 0) {
             const firstV = initialVerseNumbers[0];
             const foundIdx = resultVerses.findIndex((v) => v.verse === firstV);
             if (foundIdx >= 0) {
               targetIndex = foundIdx;
             }
-          } else if (initialVerse && initialVerse > 1) {
+          } else if (viewChapter === initialChapter && initialVerse && initialVerse > 1) {
             const foundIdx = resultVerses.findIndex((v) => v.verse === initialVerse);
             if (foundIdx >= 0) {
               targetIndex = foundIdx;
@@ -669,7 +669,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             synthRef.current.cancel();
           }
 
-          const initialTargetVerse = (initialVerse && initialVerse > 1) ? initialVerse : (resultVerses[targetIndex]?.verse || 1);
+          const initialTargetVerse = (viewChapter === initialChapter && initialVerse && initialVerse > 1) ? initialVerse : (resultVerses[targetIndex]?.verse || 1);
           const firstVerseText = resultVerses[targetIndex]?.text || resultVerses[0]?.text || '';
           const previewStr = firstVerseText ? `第 ${initialTargetVerse} 節: ${firstVerseText.slice(0, 50)}...` : undefined;
           
@@ -685,10 +685,22 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             previewText: previewStr,
           });
 
-          // 關鍵修正：正常瀏覽章節（targetIndex === 0）或按「上一章/下一章」時，絕對不調用 scrollIntoView({ block: 'center' })，
-          // 避免瀏覽器將第 1 節移至螢幕中央而導致白色經文區域往上縮入頂部控制列下方被遮擋！
+          // 關鍵修正：正常切換章節（targetIndex === 0）特別是從手機底部導航列點擊「下一章」時，
+          // 確保視窗精準回到頂端（top: 0，即經文第 1 節及頂部導航列），杜絕停留在上一章底部的現象；
+          // 同時白色經文區域穩固停在上方固定控制列下方，第 1 節絕不被遮擋。
           // 僅當指定特定節數（例如從書籤進入且指定第 2 節以上：targetIndex > 0）時，才做平滑安全視窗微調。
-          if (targetIndex > 0 && verseRefs.current[targetIndex]) {
+          if (targetIndex === 0) {
+            window.scrollTo(0, 0);
+            requestAnimationFrame(() => {
+              window.scrollTo(0, 0);
+            });
+            setTimeout(() => {
+              window.scrollTo(0, 0);
+            }, 30);
+            setTimeout(() => {
+              window.scrollTo(0, 0);
+            }, 120);
+          } else if (targetIndex > 0 && verseRefs.current[targetIndex]) {
             setTimeout(() => {
               const targetEl = verseRefs.current[targetIndex];
               if (targetEl) {
@@ -798,18 +810,16 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   }, [viewChapter, isChapterInputFocused]);
 
-  // 平滑捲動至頂端：當切換上一章、下一章、直接輸入跳轉或切換新經卷時，
-  // 若不在最頂端則平滑捲動回 top: 0，上方固定控制列穩固停在 header 下方特定高度，經文白底區域與第 1 節絕不被遮擋。
+  // 捲動至頂端：當切換上一章、下一章、直接輸入跳轉或切換新經卷時，
+  // 確保手機與電腦回到頂端（top: 0，即經文第 1 節及頂部導航列），白色經文區穩固停在上方固定控制列下方，經文第 1 節清晰可見。
   const scrollToScriptureTop = useCallback(() => {
-    if (window.scrollY > 0) {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      });
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
     }
+    window.scrollTo(0, 0);
   }, []);
 
-  // When switching book or chapter, ensure page smoothly scrolls so that scripture container and verse 1 are at top (Desktop & Mobile)
+  // When switching book or chapter, ensure page scrolls so that scripture container and verse 1 are at top (Desktop & Mobile)
   useEffect(() => {
     scrollToScriptureTop();
   }, [selectedBook.id, viewChapter, scrollToScriptureTop]);
@@ -873,6 +883,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   }, [isChapterInputFocused, autoScrollInputToSafePosition]);
 
   const handleJumpToChapter = (chapterNum: number) => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     const clamped = Math.max(1, Math.min(chapterNum, selectedBook.chaptersCount));
     if (synthRef.current) {
       synthRef.current.cancel();
@@ -899,6 +912,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   const handlePrevChapter = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     if (viewChapter > 1) {
       if (synthRef.current) {
         synthRef.current.cancel();
@@ -923,6 +939,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             synthRef.current.cancel();
           }
           shouldAutoPlayRef.current = isPlaying;
+          scrollToScriptureTop();
           onSelectBook(prevBook, prevBook.chaptersCount, isPlaying);
         }
       }
@@ -930,6 +947,9 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   };
 
   const handleNextChapter = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     if (viewChapter < selectedBook.chaptersCount) {
       if (synthRef.current) {
         synthRef.current.cancel();
@@ -954,6 +974,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             synthRef.current.cancel();
           }
           shouldAutoPlayRef.current = isPlaying;
+          scrollToScriptureTop();
           onSelectBook(nextBook, 1, isPlaying);
         }
       }
@@ -1509,7 +1530,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         {/* 上一章按鈕 */}
         <button
           type="button"
-          onClick={handlePrevChapter}
+          onClick={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            handlePrevChapter();
+          }}
           disabled={viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0}
           className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 whitespace-nowrap ${
             viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0
@@ -1608,7 +1634,12 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         {/* 下一章按鈕 */}
         <button
           type="button"
-          onClick={handleNextChapter}
+          onClick={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            handleNextChapter();
+          }}
           disabled={
             viewChapter >= selectedBook.chaptersCount &&
             BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
@@ -1789,6 +1820,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
       {/* Scripture Verses Display List with Swipe Gesture Support */}
       <div
         id="scripture-container"
+        style={{ overflowAnchor: 'none' }}
         className="bg-white text-zinc-900 border-2 border-amber-300/80 shadow-2xl px-1.5 py-2.5 sm:px-2.5 sm:py-3 md:px-3.5 md:py-4 rounded-xl sm:rounded-2xl min-h-[350px] space-y-2 sm:space-y-2.5 touch-pan-y scroll-mt-48"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -1962,7 +1994,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         )}
 
         {/* Bottom Chapter Navigation Bar (每章最尾端的右邊，始終顯示在同一列) */}
-        <div className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap">
+        <div
+          style={{ overflowAnchor: 'none' }}
+          className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap"
+        >
           {renderChapterNavBar('bottom')}
         </div>
       </div>
