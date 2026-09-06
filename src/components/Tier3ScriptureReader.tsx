@@ -13,7 +13,7 @@ import {
   Bookmark,
   Loader2,
 } from 'lucide-react';
-import { BibleBook, BibleVersion, ReadingMode, Verse } from '../types';
+import { BibleBook, BibleVersion, FontFamily, ReadingMode, Verse } from '../types';
 import { BIBLE_BOOKS, VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 import {
@@ -44,6 +44,7 @@ interface Tier3ScriptureReaderProps {
   speechPitch?: number;
   fontSize?: 'normal' | 'large' | 'xlarge';
   setFontSize?: (size: 'normal' | 'large' | 'xlarge') => void;
+  fontFamily?: FontFamily;
   selectedVoiceName?: string;
   autoStartPlayback?: boolean;
   isFromBookmark?: boolean;
@@ -67,6 +68,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   speechPitch = 1.0,
   fontSize: propFontSize,
   setFontSize: propSetFontSize,
+  fontFamily = 'sans',
   selectedVoiceName = '',
   autoStartPlayback = false,
   isFromBookmark = false,
@@ -1510,6 +1512,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return 'text-xl md:text-2xl leading-[1.3]';
   };
 
+  // Font Family CSS mapping
+  const getFontFamilyClass = () => {
+    if (fontFamily === 'serif') return 'font-serif-pref';
+    if (fontFamily === 'kai') return 'font-kai-pref';
+    return 'font-sans-pref';
+  };
+
   // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕 - 確保同一列不可分行)
   const renderChapterNavBar = (idSuffix: string = 'top') => {
     const handleConfirmJump = (overrideVal?: string) => {
@@ -1856,7 +1865,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                   {sectionSubtitle && (
                     <div className="pt-2 pb-1 px-1 mt-1 mb-0.5 flex items-center gap-2 select-text">
                       <span className="w-1.5 h-3 rounded-full bg-gradient-to-b from-amber-500 to-amber-700 shrink-0 shadow-xs select-none"></span>
-                      <h4 className="text-amber-900 font-serif font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5 select-text cursor-text">
+                      <h4 className={`text-amber-900 scripture-font ${getFontFamilyClass()} font-bold text-xs md:text-sm tracking-wide flex items-center gap-1.5 select-text cursor-text`}>
                         {normalizeGodTerms(sectionSubtitle)}
                       </h4>
                       <div className="flex-1 h-[1px] bg-gradient-to-r from-amber-400/80 via-amber-200/50 to-transparent select-none"></div>
@@ -1919,7 +1928,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
                           {/* Verse Text (單擊切換細黑色虛線選取，亦可長按任意反白拖曳選取) */}
                           <div className="flex-1 min-w-0 select-text cursor-pointer verse-text-content">
                             <p
-                              className={`font-serif tracking-normal transition-all select-text cursor-pointer ${getFontSizeClass()} ${
+                              className={`scripture-font ${getFontFamilyClass()} tracking-normal transition-all select-text cursor-pointer ${getFontSizeClass()} ${
                                 isUnderlined
                                   ? 'underline decoration-black decoration-dashed decoration-1 underline-offset-[3px]'
                                   : ''
@@ -1995,7 +2004,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
             <div className="space-y-1.5">
               <p className="text-xs text-yellow-500/80 font-medium">是否要複製以下經文？</p>
-              <div className="bg-white p-3.5 rounded-xl border border-amber-300/80 text-xs md:text-sm text-zinc-900 leading-relaxed font-serif max-h-48 overflow-y-auto shadow-inner">
+              <div className={`bg-white p-3.5 rounded-xl border border-amber-300/80 text-xs md:text-sm text-zinc-900 leading-relaxed scripture-font ${getFontFamilyClass()} max-h-48 overflow-y-auto shadow-inner`}>
                 <span className="font-bold text-amber-800 mr-1.5">
                   {bookName} {selectedCopyVerse.chapter}:{selectedCopyVerse.verse}
                 </span>

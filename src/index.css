@@ -122,10 +122,52 @@
   background: #ca8a04;
 }
 
+/* Typography & Font Families */
+:root {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+  --font-serif: 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', 'MingLiU', 'PMingLiU', 'Baskerville', 'Georgia', 'Times New Roman', serif;
+  --font-kai: 'LXGW WenKai TC', 'Kaiti TC', 'BiauKai', 'DFKai-SB', 'STKaiti', 'KaiTi', '楷體', '楷体', 'Noto Serif TC', cursive, serif;
+
+  --app-scripture-font: var(--font-sans);
+}
+
+body[data-font="sans"] {
+  --app-scripture-font: var(--font-sans);
+}
+
+body[data-font="serif"] {
+  --app-scripture-font: var(--font-serif);
+}
+
+body[data-font="kai"] {
+  --app-scripture-font: var(--font-kai);
+}
+
+/* Explicit font family preview classes */
+.font-sans-pref {
+  font-family: var(--font-sans) !important;
+}
+
+.font-serif-pref {
+  font-family: var(--font-serif) !important;
+}
+
+.font-kai-pref {
+  font-family: var(--font-kai) !important;
+}
+
+/* Dynamic Scripture Reading Font */
+.scripture-font,
+.verse-text-content p,
+.verse-text-content span.select-text,
+.scripture-verse-text {
+  font-family: var(--app-scripture-font) !important;
+}
+
 body {
   background-color: #050505;
   color: #f3f4f6;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: var(--font-sans);
   min-height: 100vh;
   margin: 0;
   padding: 0;

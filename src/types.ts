@@ -1,5 +1,7 @@
 export type BibleVersion = 'CUV' | 'WEB' | 'LSG' | 'KJV';
 
+export type FontFamily = 'sans' | 'serif' | 'kai';
+
 export interface VersionInfo {
   id: BibleVersion;
   name: string;

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { BibleBook, BibleVersion, Bookmark, ReadingMode, Tier } from './types';
+import { BibleBook, BibleVersion, Bookmark, FontFamily, ReadingMode, Tier } from './types';
 import { BIBLE_BOOKS } from './data/bibleBooks';
 import { Header } from './components/Header';
 import { Tier1VersionSelect } from './components/Tier1VersionSelect';
@@ -67,6 +67,22 @@ export default function App() {
       localStorage.setItem('bible_font_size', fontSize);
     }
   }, [fontSize]);
+
+  const [fontFamily, setFontFamily] = useState<FontFamily>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('bible_font_family');
+      if (saved === 'sans' || saved === 'serif' || saved === 'kai') return saved as FontFamily;
+    }
+    return 'sans';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bible_font_family', fontFamily);
+      document.body.setAttribute('data-font', fontFamily);
+    }
+  }, [fontFamily]);
+
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
   const [isNightMode, setIsNightMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -368,6 +384,7 @@ export default function App() {
             speechPitch={speechPitch}
             fontSize={fontSize}
             setFontSize={setFontSize}
+            fontFamily={fontFamily}
             selectedVoiceName={selectedVoiceName}
             autoStartPlayback={autoStartPlayback}
             isFromBookmark={isFromBookmark}
@@ -387,6 +404,8 @@ export default function App() {
         onSpeechPitchChange={setSpeechPitch}
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
+        fontFamily={fontFamily}
+        onFontFamilyChange={setFontFamily}
         selectedVoiceName={selectedVoiceName}
         onVoiceNameChange={setSelectedVoiceName}
         isNightMode={isNightMode}

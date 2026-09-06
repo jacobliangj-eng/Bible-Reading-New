@@ -574,7 +574,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 </span>
 
                 {/* 經文內容 (僅關鍵字紅字加粗，其餘不加粗) */}
-                <span className="text-stone-900 font-normal">
+                <span className="text-stone-900 font-normal scripture-font">
                   {renderHighlightedText(item.text)}
                 </span>
               </div>

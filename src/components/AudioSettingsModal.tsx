@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders, Timer, Clock } from 'lucide-react';
-import { BibleVersion } from '../types';
+import { X, Volume2, Settings, Sparkles, Check, Moon, Sliders, Timer, Clock, Type } from 'lucide-react';
+import { BibleVersion, FontFamily } from '../types';
 import { VERSIONS } from '../data/bibleBooks';
 import { fixChineseTTSPronunciation } from '../data/dailyVerses';
 
@@ -14,6 +14,8 @@ interface AudioSettingsModalProps {
   onSpeechPitchChange?: (pitch: number) => void;
   fontSize?: 'normal' | 'large' | 'xlarge';
   onFontSizeChange?: (size: 'normal' | 'large' | 'xlarge') => void;
+  fontFamily?: FontFamily;
+  onFontFamilyChange?: (font: FontFamily) => void;
   selectedVoiceName?: string;
   onVoiceNameChange?: (voiceName: string) => void;
   isNightMode?: boolean;
@@ -32,6 +34,8 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
   onSpeechPitchChange,
   fontSize = 'large',
   onFontSizeChange,
+  fontFamily = 'sans',
+  onFontFamilyChange,
   selectedVoiceName = '',
   onVoiceNameChange,
   isNightMode = false,
@@ -128,9 +132,9 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
             <Settings className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gold-gradient">朗讀語音設定</h3>
+            <h3 className="text-lg font-bold text-gold-gradient">朗讀語音與閱讀設定</h3>
             <p className="text-xs text-yellow-500/70">
-              調整朗讀速度、經文字級與聲音引擎
+              調整朗讀速度、經文字級與字型風格
             </p>
           </div>
         </div>
@@ -171,6 +175,89 @@ export const AudioSettingsModal: React.FC<AudioSettingsModalProps> = ({
               <option value="large">大 (放大)</option>
               <option value="xlarge">特大 (超大)</option>
             </select>
+          </div>
+        </div>
+
+        {/* 字型選擇 (Font Selection: 黑體、襯線體、楷體) */}
+        <div className="bg-zinc-900/90 p-3.5 rounded-xl border border-yellow-800/50 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-yellow-950 border border-yellow-700/50 flex items-center justify-center text-amber-400 shrink-0">
+                <Type className="w-4 h-4 text-amber-300" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-amber-200 block">
+                  字型選擇 (Font Selection)
+                </label>
+                <p className="text-[10px] text-zinc-400 leading-tight">
+                  切換經文閱讀字體風格，打造最舒適的個人化閱讀質感
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {[
+              {
+                id: 'sans' as FontFamily,
+                name: '黑體（預設）',
+                desc: '簡約清晰',
+                sample: '起初 神',
+                fontClass: 'font-sans-pref',
+              },
+              {
+                id: 'serif' as FontFamily,
+                name: '襯線體（仿印刷版）',
+                desc: '仿紙本印刷',
+                sample: '起初 神',
+                fontClass: 'font-serif-pref',
+              },
+              {
+                id: 'kai' as FontFamily,
+                name: '楷體（閱讀感）',
+                desc: '溫潤書法感',
+                sample: '起初 神',
+                fontClass: 'font-kai-pref',
+              },
+            ].map((fontItem) => {
+              const isSelected = fontFamily === fontItem.id;
+              return (
+                <button
+                  key={fontItem.id}
+                  type="button"
+                  onClick={() => onFontFamilyChange && onFontFamilyChange(fontItem.id)}
+                  className={`p-2.5 rounded-xl border transition-all cursor-pointer text-center flex flex-col items-center justify-between group touch-manipulation relative overflow-hidden ${
+                    isSelected
+                      ? 'bg-amber-500/20 border-amber-400 ring-1 ring-amber-400/50 shadow-md shadow-amber-500/10'
+                      : 'bg-zinc-950/90 border-yellow-700/40 hover:border-amber-500/60 hover:bg-zinc-800'
+                  }`}
+                  title={`切換字型為${fontItem.name}`}
+                >
+                  <div className="flex items-center justify-center gap-1 w-full mb-1">
+                    <span
+                      className={`text-[11px] sm:text-xs font-bold ${
+                        isSelected ? 'text-amber-300' : 'text-zinc-300 group-hover:text-amber-200'
+                      }`}
+                    >
+                      {fontItem.name}
+                    </span>
+                    {isSelected && (
+                      <Check className="w-3 h-3 text-amber-400 shrink-0" />
+                    )}
+                  </div>
+                  <p
+                    className={`text-sm sm:text-base my-1 tracking-wide ${fontItem.fontClass} ${
+                      isSelected ? 'text-amber-100 font-semibold' : 'text-zinc-400 group-hover:text-zinc-200'
+                    }`}
+                  >
+                    {fontItem.sample}
+                  </p>
+                  <span className="text-[9px] text-zinc-500 group-hover:text-zinc-400 line-clamp-1">
+                    {fontItem.desc}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
