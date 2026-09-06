@@ -59,7 +59,7 @@ export default function App() {
       const saved = localStorage.getItem('bible_font_size');
       if (saved === 'normal' || saved === 'large' || saved === 'xlarge') return saved;
     }
-    return 'xlarge';
+    return 'large';
   });
 
   useEffect(() => {

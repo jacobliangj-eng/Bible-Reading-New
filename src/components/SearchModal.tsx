@@ -437,19 +437,19 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 id={`search-result-item-${item.id}`}
                 onClick={() => setSelectedResultId(item.id)}
                 onDoubleClick={() => handleJump(item)}
-                className={`text-[18px] sm:text-[18px] leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
+                className={`text-[18px] sm:text-[18px] font-normal leading-[1.20] cursor-pointer select-none transition-colors py-1 px-1.5 rounded-sm touch-manipulation ${
                   isSelected
                     ? 'bg-[#edd99e]/45 ring-1 ring-[#c7a75c]/60'
                     : 'hover:bg-amber-100/30'
                 }`}
               >
-                {/* 綠色書卷縮寫與章節，例如: 創 8:7 */}
-                <span className="text-[#2e7d32] font-bold mr-1.5 select-none inline-block">
+                {/* 綠色書卷縮寫與章節，例如: 創 8:7（不加粗） */}
+                <span className="text-[#2e7d32] font-normal mr-1.5 select-none inline-block">
                   {shortBook} {item.chapter}:{item.verse}
                 </span>
 
-                {/* 經文內容 (關鍵字紅字標示) */}
-                <span className="text-stone-900">
+                {/* 經文內容 (僅關鍵字紅字加粗，其餘不加粗) */}
+                <span className="text-stone-900 font-normal">
                   {renderHighlightedText(item.text)}
                 </span>
               </div>

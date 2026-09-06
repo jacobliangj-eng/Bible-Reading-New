@@ -133,7 +133,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [currentVerseIndex, setCurrentVerseIndex] = useState<number>(0);
   const [localPlaybackSpeed, setLocalPlaybackSpeed] = useState<number>(isFhlMp3Mode ? 1.25 : 1.0);
   const [isInfiniteLoop, setIsInfiniteLoop] = useState<boolean>(false);
-  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('xlarge');
+  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
   const playbackSpeed = propSpeed ?? localPlaybackSpeed;
   const setPlaybackSpeed = propSetSpeed ?? setLocalPlaybackSpeed;
@@ -1503,11 +1503,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
-  // Font size CSS mapping - compact line heights to show more verses per screen
+  // Font size CSS mapping - mobile: 16px (normal), 18px (large), 20px (xlarge)
   const getFontSizeClass = () => {
-    if (fontSize === 'normal') return 'text-sm md:text-base leading-[1.3]';
-    if (fontSize === 'large') return 'text-base md:text-lg leading-[1.3]';
-    return 'text-lg md:text-xl leading-[1.3]';
+    if (fontSize === 'normal') return 'text-base md:text-lg leading-[1.3]';
+    if (fontSize === 'large') return 'text-lg md:text-xl leading-[1.3]';
+    return 'text-xl md:text-2xl leading-[1.3]';
   };
 
   // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕 - 確保同一列不可分行)
