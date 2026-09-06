@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, MoreVertical, X } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { BibleBook, BibleVersion } from '../types';
 import { BIBLE_BOOKS } from '../data/bibleBooks';
 import { getRecentBookIds, addRecentBook } from '../services/lastReadService';
@@ -38,6 +38,18 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
     }
   }, [currentBook]);
 
+  // Support Escape key to close modal
+  useEffect(() => {
+    if (!isModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onBack();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModal, onBack]);
+
   // Keep track of recent books
   const recentBooks = useMemo(() => {
     const recentIds = getRecentBookIds();
@@ -69,59 +81,35 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
 
   const content = (
     <div className="w-full h-full flex flex-col bg-[#f7f5dc] select-none">
-      {/* Top Header Bar (深咖啡色 #593E36) */}
-      <div className="bg-[#593E36] text-white px-3 py-2 sm:py-2.5 flex items-center justify-between shrink-0 shadow-md">
-        {/* Left: Back Arrow */}
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-white cursor-pointer"
-          title="返回"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-
+      {/* Top Header Bar (深咖啡色 #593E36) - 刪除左邊往左箭號與右邊垂直三點，居中顯示頁籤 */}
+      <div className="bg-[#593E36] text-white px-3 py-2 sm:py-2.5 flex items-center justify-center shrink-0 shadow-md">
         {/* Center: Segmented Book & Chapter Bookmark Tabs */}
         <div className="inline-flex items-center bg-[#463026] p-0.5 rounded-lg border border-white/10 shadow-inner">
           <button
             type="button"
             onClick={() => setActiveTab('BOOK')}
-            className={`px-6 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-4 sm:px-6 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all cursor-pointer whitespace-nowrap max-w-[160px] sm:max-w-[200px] truncate ${
               activeTab === 'BOOK'
                 ? 'bg-white text-[#3e2723] shadow-sm'
                 : 'text-white/80 hover:text-white'
             }`}
+            title={activeTab === 'CHAPTER' ? `目前為「${activeBook.name[selectedVersion]}」，點擊回到書卷選單` : '書卷選單'}
           >
-            書卷
+            {activeTab === 'CHAPTER' ? activeBook.name[selectedVersion] : '書卷'}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('CHAPTER')}
-            className={`px-6 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-5 sm:px-7 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'CHAPTER'
                 ? 'bg-white text-[#3e2723] shadow-sm'
                 : 'text-white/80 hover:text-white'
             }`}
+            title="章節選單"
           >
             章
           </button>
         </div>
-
-        {/* Right: Close or More */}
-        {isModal ? (
-          <button
-            type="button"
-            onClick={onBack}
-            className="p-1.5 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors text-white cursor-pointer"
-            title="關閉"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className="w-8 flex items-center justify-end">
-            <MoreVertical className="w-5 h-5 text-white/80" />
-          </div>
-        )}
       </div>
 
       {/* Main Content Area */}
@@ -152,7 +140,13 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
           </div>
 
           {/* Bottom Bar: Book Name & Chapter : Verse (深咖啡色 #593E36) */}
-          <div className="bg-[#593E36] text-white py-2.5 px-4 text-center shrink-0 shadow-inner">
+          <div
+            onClick={isModal ? onBack : undefined}
+            className={`bg-[#593E36] text-white py-2.5 px-4 text-center shrink-0 shadow-inner ${
+              isModal ? 'cursor-pointer hover:bg-[#4a332c] active:bg-[#3d2923] transition-colors' : ''
+            }`}
+            title={isModal ? '點擊關閉選單' : undefined}
+          >
             <span className="text-sm sm:text-base font-medium tracking-wide">
               {activeBook.name[selectedVersion]}{' '}
               {activeBook.id === currentBook?.id ? currentChapter : 1}:1
@@ -305,8 +299,16 @@ export const BookChapterSelector: React.FC<BookChapterSelectorProps> = ({
 
   if (isModal) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end sm:justify-center items-center backdrop-blur-xs">
-        <div className="w-full h-full sm:max-w-md md:max-w-lg sm:h-[92vh] sm:max-h-[850px] bg-[#f7f5dc] flex flex-col shadow-2xl sm:rounded-2xl overflow-hidden border sm:border-[#8d6e63]">
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onBack();
+        }}
+        className="fixed inset-0 z-50 bg-black/60 flex flex-col justify-end sm:justify-center items-center backdrop-blur-xs cursor-pointer"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="w-full h-[92vh] sm:max-w-md md:max-w-lg sm:h-[92vh] sm:max-h-[850px] bg-[#f7f5dc] flex flex-col shadow-2xl rounded-t-2xl sm:rounded-2xl overflow-hidden border-t sm:border border-[#8d6e63] cursor-default"
+        >
           {content}
         </div>
       </div>
