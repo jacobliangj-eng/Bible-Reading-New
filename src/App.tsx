@@ -216,9 +216,14 @@ export default function App() {
       setSelectedBook(book);
       setInitialChapter(bookmark.chapter);
       setInitialVerse(bookmark.startVerse);
-      setInitialReadingMode(bookmark.readingMode || (bookmark.startVerse !== undefined ? 'VERSES' : 'CHAPTERS'));
+      setInitialReadingMode(
+        bookmark.readingMode ||
+          (bookmark.startVerse !== undefined || (bookmark.verseNumbers && bookmark.verseNumbers.length > 0)
+            ? 'VERSES'
+            : 'CHAPTERS')
+      );
       setInitialStartVerse(bookmark.startVerse);
-      setInitialEndVerse(bookmark.endVerse);
+      setInitialEndVerse(bookmark.endVerse ?? bookmark.startVerse);
       setInitialVerseNumbers(bookmark.verseNumbers);
       setIsFromBookmark(true);
       setActiveBookmarkOrigin({
