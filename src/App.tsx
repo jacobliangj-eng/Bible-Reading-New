@@ -195,14 +195,12 @@ export default function App() {
     setInitialStartVerse(undefined);
     setInitialEndVerse(undefined);
     setInitialVerseNumbers(undefined);
-    if (currentTier !== 'TIER3') {
-      setIsFromBookmark(false);
-      setActiveBookmarkOrigin({
-        book,
-        chapter,
-        version: selectedVersion,
-      });
-    }
+    setIsFromBookmark(false);
+    setActiveBookmarkOrigin({
+      book,
+      chapter,
+      version: selectedVersion,
+    });
     setAutoStartPlayback(autoPlay);
     setTier3SessionKey((k) => k + 1);
     setCurrentTier('TIER3');

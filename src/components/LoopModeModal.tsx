@@ -108,41 +108,43 @@ export const LoopModeModal: React.FC<LoopModeModalProps> = ({
           </div>
         </div>
 
-        {/* 4 個畫面區塊（本卷、本章、特定、單次）在單一頁面 */}
+        {/* 4 個畫面區塊（本卷、本章、特定、單次）在單一頁面，底色為米黃色 */}
         <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
           {/* 畫面 1：本卷 */}
           <div
             onClick={() => handleApplyScope('BOOK')}
             className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative group text-left ${
               currentLoopScope === 'BOOK'
-                ? 'bg-amber-950/60 border-amber-400 shadow-md ring-1 ring-amber-400/80'
-                : 'bg-zinc-900/80 border-yellow-800/40 hover:border-amber-500/70 hover:bg-zinc-800/90'
+                ? 'bg-[#FEF3C7] border-2 border-amber-500 shadow-md ring-2 ring-amber-400/50'
+                : 'bg-[#FDF6E2] border-amber-300/80 hover:bg-[#FFFDF7] hover:border-amber-400 shadow-xs'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <div className={`p-1 rounded-md ${currentLoopScope === 'BOOK' ? 'bg-amber-400 text-black' : 'bg-yellow-950 text-amber-400'}`}>
+                  <div className={`p-1 rounded-md ${currentLoopScope === 'BOOK' ? 'bg-amber-500 text-black' : 'bg-amber-200/80 text-amber-900'}`}>
                     <BookOpen className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-bold text-sm text-yellow-200">本卷</span>
+                  <span className="font-bold text-sm text-stone-900">本卷</span>
                 </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-yellow-950/80 text-amber-300 border border-yellow-700/50">
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-900 border border-amber-300">
                   畫面一
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-300 leading-tight">
+              <p className="text-[11px] text-stone-800 leading-tight font-medium">
                 全卷循環（1~{totalChapters}{chapterUnit}）
               </p>
-              <p className="text-[10px] text-zinc-400 mt-1">
+              <p className="text-[10px] text-stone-600 mt-1">
                 唸完重頭自第 1 {chapterUnit}開始
               </p>
             </div>
 
-            <div className="mt-2.5 pt-1.5 border-t border-yellow-900/40 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-amber-400">顯示「本卷」</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                currentLoopScope === 'BOOK' ? 'bg-amber-400 text-black' : 'text-amber-300 group-hover:text-amber-200'
+            <div className="mt-2.5 pt-1.5 border-t border-amber-200 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-amber-900">顯示「本卷」</span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors ${
+                currentLoopScope === 'BOOK'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-amber-800 bg-amber-100/80 border border-amber-300/60 group-hover:bg-amber-200 group-hover:text-amber-950'
               }`}>
                 {currentLoopScope === 'BOOK' ? '✓ 使用中' : '選擇 →'}
               </span>
@@ -154,34 +156,36 @@ export const LoopModeModal: React.FC<LoopModeModalProps> = ({
             onClick={() => handleApplyScope('CHAPTER')}
             className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative group text-left ${
               currentLoopScope === 'CHAPTER'
-                ? 'bg-amber-950/60 border-amber-400 shadow-md ring-1 ring-amber-400/80'
-                : 'bg-zinc-900/80 border-yellow-800/40 hover:border-amber-500/70 hover:bg-zinc-800/90'
+                ? 'bg-[#FEF3C7] border-2 border-amber-500 shadow-md ring-2 ring-amber-400/50'
+                : 'bg-[#FDF6E2] border-amber-300/80 hover:bg-[#FFFDF7] hover:border-amber-400 shadow-xs'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <div className={`p-1 rounded-md ${currentLoopScope === 'CHAPTER' ? 'bg-amber-400 text-black' : 'bg-yellow-950 text-amber-400'}`}>
+                  <div className={`p-1 rounded-md ${currentLoopScope === 'CHAPTER' ? 'bg-amber-500 text-black' : 'bg-amber-200/80 text-amber-900'}`}>
                     <FileText className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-bold text-sm text-yellow-200">本章</span>
+                  <span className="font-bold text-sm text-stone-900">本章</span>
                 </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-yellow-950/80 text-amber-300 border border-yellow-700/50">
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-900 border border-amber-300">
                   畫面二
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-300 leading-tight">
+              <p className="text-[11px] text-stone-800 leading-tight font-medium">
                 本章循環（第 {viewChapter} {chapterUnit}）
               </p>
-              <p className="text-[10px] text-zinc-400 mt-1">
+              <p className="text-[10px] text-stone-600 mt-1">
                 本章反覆循環，不跨章
               </p>
             </div>
 
-            <div className="mt-2.5 pt-1.5 border-t border-yellow-900/40 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-amber-400">顯示「本章」</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                currentLoopScope === 'CHAPTER' ? 'bg-amber-400 text-black' : 'text-amber-300 group-hover:text-amber-200'
+            <div className="mt-2.5 pt-1.5 border-t border-amber-200 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-amber-900">顯示「本章」</span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors ${
+                currentLoopScope === 'CHAPTER'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-amber-800 bg-amber-100/80 border border-amber-300/60 group-hover:bg-amber-200 group-hover:text-amber-950'
               }`}>
                 {currentLoopScope === 'CHAPTER' ? '✓ 使用中' : '選擇 →'}
               </span>
@@ -193,34 +197,36 @@ export const LoopModeModal: React.FC<LoopModeModalProps> = ({
             onClick={() => handleApplyScope('VERSES')}
             className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative group text-left ${
               currentLoopScope === 'VERSES'
-                ? 'bg-amber-950/60 border-amber-400 shadow-md ring-1 ring-amber-400/80'
-                : 'bg-zinc-900/80 border-yellow-800/40 hover:border-amber-500/70 hover:bg-zinc-800/90'
+                ? 'bg-[#FEF3C7] border-2 border-amber-500 shadow-md ring-2 ring-amber-400/50'
+                : 'bg-[#FDF6E2] border-amber-300/80 hover:bg-[#FFFDF7] hover:border-amber-400 shadow-xs'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <div className={`p-1 rounded-md ${currentLoopScope === 'VERSES' ? 'bg-amber-400 text-black' : 'bg-yellow-950 text-amber-400'}`}>
+                  <div className={`p-1 rounded-md ${currentLoopScope === 'VERSES' ? 'bg-amber-500 text-black' : 'bg-amber-200/80 text-amber-900'}`}>
                     <ListChecks className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-bold text-sm text-yellow-200">特定</span>
+                  <span className="font-bold text-sm text-stone-900">特定</span>
                 </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-yellow-950/80 text-amber-300 border border-yellow-700/50">
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-900 border border-amber-300">
                   畫面三
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-300 leading-tight">
+              <p className="text-[11px] text-stone-800 leading-tight font-medium">
                 特定幾節循環（TTS）
               </p>
-              <p className="text-[10px] text-amber-300/90 mt-1 truncate">
+              <p className="text-[10px] text-amber-900/90 mt-1 truncate font-semibold">
                 已選：第 {selectedVerses.join(', ')} 節
               </p>
             </div>
 
-            <div className="mt-2.5 pt-1.5 border-t border-yellow-900/40 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-amber-400">顯示「特定」</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                currentLoopScope === 'VERSES' ? 'bg-amber-400 text-black' : 'text-amber-300 group-hover:text-amber-200'
+            <div className="mt-2.5 pt-1.5 border-t border-amber-200 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-amber-900">顯示「特定」</span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors ${
+                currentLoopScope === 'VERSES'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-amber-800 bg-amber-100/80 border border-amber-300/60 group-hover:bg-amber-200 group-hover:text-amber-950'
               }`}>
                 {currentLoopScope === 'VERSES' ? '✓ 使用中' : '選擇 →'}
               </span>
@@ -232,34 +238,36 @@ export const LoopModeModal: React.FC<LoopModeModalProps> = ({
             onClick={() => handleApplyScope('SINGLE')}
             className={`p-2.5 sm:p-3 rounded-xl border flex flex-col justify-between transition-all cursor-pointer relative group text-left ${
               currentLoopScope === 'SINGLE'
-                ? 'bg-amber-950/60 border-amber-400 shadow-md ring-1 ring-amber-400/80'
-                : 'bg-zinc-900/80 border-yellow-800/40 hover:border-amber-500/70 hover:bg-zinc-800/90'
+                ? 'bg-[#FEF3C7] border-2 border-amber-500 shadow-md ring-2 ring-amber-400/50'
+                : 'bg-[#FDF6E2] border-amber-300/80 hover:bg-[#FFFDF7] hover:border-amber-400 shadow-xs'
             }`}
           >
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <div className={`p-1 rounded-md ${currentLoopScope === 'SINGLE' ? 'bg-zinc-800 text-amber-400' : 'bg-zinc-900 text-zinc-500'}`}>
+                  <div className={`p-1 rounded-md ${currentLoopScope === 'SINGLE' ? 'bg-amber-500 text-black' : 'bg-stone-200 text-stone-700'}`}>
                     <ArrowRightCircle className="w-3.5 h-3.5" />
                   </div>
-                  <span className="font-bold text-sm text-yellow-200">單次</span>
+                  <span className="font-bold text-sm text-stone-900">單次</span>
                 </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-yellow-950/80 text-amber-300 border border-yellow-700/50">
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-900 border border-amber-300">
                   畫面四
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-300 leading-tight">
+              <p className="text-[11px] text-stone-800 leading-tight font-medium">
                 正常單次朗讀（關閉循環）
               </p>
-              <p className="text-[10px] text-zinc-400 mt-1">
-                朗讀完畢即停止，不重複
+              <p className="text-[10px] text-stone-600 mt-1">
+                唸完一章持續唸下一章、唸完一卷持續唸下一卷
               </p>
             </div>
 
-            <div className="mt-2.5 pt-1.5 border-t border-yellow-900/40 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-zinc-400">顯示「單次」</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-                currentLoopScope === 'SINGLE' ? 'bg-amber-400 text-black' : 'text-amber-300 group-hover:text-amber-200'
+            <div className="mt-2.5 pt-1.5 border-t border-amber-200 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-stone-700">顯示「單次」</span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors ${
+                currentLoopScope === 'SINGLE'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-amber-800 bg-amber-100/80 border border-amber-300/60 group-hover:bg-amber-200 group-hover:text-amber-950'
               }`}>
                 {currentLoopScope === 'SINGLE' ? '✓ 使用中' : '選擇 →'}
               </span>

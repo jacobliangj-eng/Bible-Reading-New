@@ -1072,7 +1072,15 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     if (scope === 'SINGLE') {
       setIsInfiniteLoop(false);
       isInfiniteLoopRef.current = false;
-      showToast('已切換為單次朗讀（播放完畢即停止）');
+      setIsBookmarkConstrained(false);
+      isBookmarkConstrainedRef.current = false;
+      setStartChapter(1);
+      setEndChapter(selectedBook.chaptersCount);
+      setReadingMode('CHAPTERS');
+      setCustomVerseNumbers(undefined);
+      setStartVerseNum(1);
+      setEndVerseNum(999);
+      showToast('已恢復單次朗讀（唸完一章持續唸下一章、唸完一卷持續唸下一卷）');
       return;
     }
 
@@ -1145,8 +1153,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         }
 
         if (isInfiniteLoopRef.current) {
-          // 若受書籤約束或單章循環：絕不跨越此書籤/本章以外的經文，循環重播此書籤/本章
-          if (loopScopeRef.current === 'CHAPTER' || isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
+          // 若是本章循環或特定節循環：循環重播此本章/特定節
+          if (loopScopeRef.current === 'CHAPTER' || loopScopeRef.current === 'VERSES') {
             setCurrentVerseIndex(0);
             setTimeout(() => {
               speakVerse(0);
@@ -1154,28 +1162,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             return;
           }
 
-          if (viewChapterRef.current < maxChapterRef.current) {
+          // 本卷循環 (BOOK)：從第1章唸到最後一章，再從第1章循環
+          if (viewChapterRef.current < selectedBook.chaptersCount) {
             shouldAutoPlayRef.current = true;
             setViewChapter((prev) => prev + 1);
           } else {
             shouldAutoPlayRef.current = true;
-            setViewChapter(minChapterRef.current);
+            setViewChapter(1);
           }
         } else {
-          // Single playback mode (非循環狀態) - 若受書籤約束則播完即停止，不跨越到下一章
-          if (isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
-            setIsPlaying(false);
-            return;
-          }
-
-          if (viewChapterRef.current < maxChapterRef.current) {
+          // Single playback mode (恢復單次朗讀後，唸完一章會持續唸下一章、唸完一卷會持續唸下一卷)
+          if (viewChapterRef.current < selectedBook.chaptersCount) {
             shouldAutoPlayRef.current = true;
             setViewChapter((prev) => prev + 1);
           } else {
-            if (maxChapterRef.current >= selectedBook.chaptersCount) {
-              const advanced = advanceToNextBook();
-              if (advanced) return;
-            }
+            // 達到本卷最後一章 -> 自動銜接下一卷書第一章持續朗讀
+            const advanced = advanceToNextBook();
+            if (advanced) return;
             setIsPlaying(false);
           }
         }
@@ -1270,8 +1273,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           }
 
           if (isInfiniteLoopRef.current) {
-            // 若受書籤約束或單章循環：絕不跨越此書籤/本章以外的經文，循環重播此書籤/本章
-            if (loopScopeRef.current === 'CHAPTER' || isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
+            // 若是本章循環或特定節循環：循環重播此本章/特定節
+            if (loopScopeRef.current === 'CHAPTER' || loopScopeRef.current === 'VERSES') {
               setCurrentVerseIndex(0);
               setTimeout(() => {
                 speakVerse(0);
@@ -1279,29 +1282,23 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               return;
             }
 
-            if (viewChapterRef.current < maxChapterRef.current) {
+            // 本卷循環 (BOOK)：從第1章唸到最後一章，再從第1章循環
+            if (viewChapterRef.current < selectedBook.chaptersCount) {
               shouldAutoPlayRef.current = true;
               setViewChapter((prev) => prev + 1);
             } else {
               shouldAutoPlayRef.current = true;
-              setViewChapter(minChapterRef.current);
+              setViewChapter(1);
             }
           } else {
-            // Single playback mode (非循環狀態) - 若受書籤約束則播完即停止，不跨越到下一章
-            if (isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
-              setIsPlaying(false);
-              return;
-            }
-
-            if (viewChapterRef.current < maxChapterRef.current) {
+            // Single playback mode (恢復單次朗讀後，唸完一章會持續唸下一章、唸完一卷會持續唸下一卷)
+            if (viewChapterRef.current < selectedBook.chaptersCount) {
               shouldAutoPlayRef.current = true;
               setViewChapter((prev) => prev + 1);
             } else {
-              // 該卷書最後一章 -> 自動銜接下一卷書第一章
-              if (maxChapterRef.current >= selectedBook.chaptersCount) {
-                const advanced = advanceToNextBook();
-                if (advanced) return;
-              }
+              // 該卷書最後一章 -> 自動銜接下一卷書第一章持續朗讀
+              const advanced = advanceToNextBook();
+              if (advanced) return;
               setIsPlaying(false);
             }
           }
@@ -1405,8 +1402,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // MP3 Ended Handler: Auto Advance or Infinite Loop
   const handleAudioEnded = () => {
     if (isInfiniteLoopRef.current) {
-      // 若是本章循環（或書籤/單章循環約束），循環只限在此本章，絕不跨越至下一章
-      if (loopScopeRef.current === 'CHAPTER' || isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
+      // 若是本章循環（或特定節循環），循環只限在此本章，絕不跨越至下一章
+      if (loopScopeRef.current === 'CHAPTER' || loopScopeRef.current === 'VERSES') {
         if (audioRef.current) {
           audioRef.current.currentTime = 0;
           audioRef.current.playbackRate = playbackSpeedRef.current;
@@ -1415,31 +1412,24 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         return;
       }
 
-      if (viewChapterRef.current < maxChapterRef.current) {
+      // 本卷循環 (BOOK)：從第1章唸到最後一章，再從第1章循環
+      if (viewChapterRef.current < selectedBook.chaptersCount) {
         shouldAutoPlayRef.current = true;
         setViewChapter((prev) => prev + 1);
       } else {
-        // 達到結束章節（例如路得記第4章），循環回到起始章節（第1章）
+        // 達到本卷最後一章，循環回到起始章節（第1章）
         shouldAutoPlayRef.current = true;
-        setViewChapter(minChapterRef.current);
+        setViewChapter(1);
       }
     } else {
-      // Single playback mode (非循環狀態) - 若受書籤約束則播完即停止，不跨越到下一章
-      if (isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
-        setIsPlaying(false);
-        setAudioCurrentTime(0);
-        return;
-      }
-
-      if (viewChapterRef.current < maxChapterRef.current) {
+      // Single playback mode (恢復單次朗讀後，唸完一章會持續唸下一章、唸完一卷會持續唸下一卷)
+      if (viewChapterRef.current < selectedBook.chaptersCount) {
         shouldAutoPlayRef.current = true;
         setViewChapter((prev) => prev + 1);
       } else {
-        // 該卷書最後一章 -> 自動銜接下一卷書第一章
-        if (maxChapterRef.current >= selectedBook.chaptersCount) {
-          const advanced = advanceToNextBook();
-          if (advanced) return;
-        }
+        // 該卷書最後一章 -> 自動銜接下一卷書第一章持續朗讀
+        const advanced = advanceToNextBook();
+        if (advanced) return;
         setIsPlaying(false);
         setAudioCurrentTime(0);
       }
@@ -1659,7 +1649,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
 
     return (
       <div
-        className="inline-flex items-center justify-center sm:justify-end gap-1 sm:gap-1.5 scroll-mt-48 flex-nowrap shrink-0 whitespace-nowrap select-none"
+        className="inline-flex items-center justify-end gap-1 sm:gap-1.5 scroll-mt-48 flex-nowrap shrink-0 whitespace-nowrap select-none ml-auto"
         id={`chapter-nav-${idSuffix}`}
       >
         {/* 上一章按鈕 */}
@@ -1945,7 +1935,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-1.5 pb-2.5 border-b border-amber-100 flex-nowrap">
+        <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-1.5 pb-2.5 border-b border-amber-100 flex-nowrap">
           {readingMode === 'VERSES' ? (
             <div className="flex items-center gap-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-lg text-amber-900 shadow-xs shrink-0 whitespace-nowrap mr-auto">
               {isBookmarkConstrained && (
@@ -2002,7 +1992,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             <div className="hidden sm:block" />
           )}
 
-          <div className="flex items-center justify-center sm:justify-end flex-nowrap shrink-0 w-full sm:w-auto">
+          <div className="flex items-center justify-end flex-nowrap shrink-0 w-full sm:w-auto ml-auto">
             {/* Chapter Navigation Bar (Top) */}
             {renderChapterNavBar('top')}
           </div>
@@ -2162,7 +2152,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         {/* Bottom Chapter Navigation Bar (每章最尾端的右邊，始終顯示在同一列) */}
         <div
           style={{ overflowAnchor: 'none' }}
-          className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap"
+          className="flex items-center justify-end pt-3.5 pb-1 border-t border-amber-100/90 mt-4 flex-nowrap w-full ml-auto"
         >
           {renderChapterNavBar('bottom')}
         </div>
