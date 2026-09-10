@@ -25,6 +25,7 @@ import { getCuratedSubtitle } from '../data/cuvSubtitles';
 import { isBookmarked, saveBookmark, removeBookmark, getBookmarkId } from '../services/bookmarkService';
 import { saveLastReadRecord } from '../services/lastReadService';
 import { BookChapterSelector } from './BookChapterSelector';
+import { LoopModeModal, LoopScope } from './LoopModeModal';
 
 interface Tier3ScriptureReaderProps {
   selectedBook: BibleBook;
@@ -155,6 +156,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const [currentVerseIndex, setCurrentVerseIndex] = useState<number>(0);
   const [localPlaybackSpeed, setLocalPlaybackSpeed] = useState<number>(isFhlMp3Mode ? 1.25 : 1.0);
   const [isInfiniteLoop, setIsInfiniteLoop] = useState<boolean>(false);
+  const [loopScope, setLoopScope] = useState<LoopScope>('SINGLE');
+  const [isLoopModalOpen, setIsLoopModalOpen] = useState<boolean>(false);
   const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>('large');
 
   const playbackSpeed = propSpeed ?? localPlaybackSpeed;
@@ -529,6 +532,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   const minChapterRef = useRef<number>(1);
   const maxChapterRef = useRef<number>(1);
   const isInfiniteLoopRef = useRef<boolean>(false);
+  const loopScopeRef = useRef<LoopScope>('SINGLE');
   const isBookmarkConstrainedRef = useRef<boolean>(isFromBookmark);
   const playbackSpeedRef = useRef<number>(1.0);
   const speechPitchRef = useRef<number>(1.0);
@@ -562,6 +566,10 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   useEffect(() => {
     isInfiniteLoopRef.current = isInfiniteLoop;
   }, [isInfiniteLoop]);
+
+  useEffect(() => {
+    loopScopeRef.current = loopScope;
+  }, [loopScope]);
 
   useEffect(() => {
     playbackSpeedRef.current = playbackSpeed;
@@ -1056,6 +1064,69 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     }
   };
 
+  // 選擇循環模式處理：本卷書循環、本章循環、特定幾節循環、單次播放
+  const handleSelectLoopScope = (scope: LoopScope, verses?: number[]) => {
+    setLoopScope(scope);
+    loopScopeRef.current = scope;
+
+    if (scope === 'SINGLE') {
+      setIsInfiniteLoop(false);
+      isInfiniteLoopRef.current = false;
+      showToast('已切換為單次朗讀（播放完畢即停止）');
+      return;
+    }
+
+    setIsInfiniteLoop(true);
+    isInfiniteLoopRef.current = true;
+
+    if (scope === 'BOOK') {
+      setIsBookmarkConstrained(false);
+      isBookmarkConstrainedRef.current = false;
+      setStartChapter(1);
+      setEndChapter(selectedBook.chaptersCount);
+      setReadingMode('CHAPTERS');
+      setCustomVerseNumbers(undefined);
+      setStartVerseNum(1);
+      setEndVerseNum(999);
+
+      // 用戶指示：例如，當我們唸到創世記第26章時，選擇此項目，創世記這卷書會從第1章唸到第50章，又會從第1章開始循環唸。按下後，TIER3的「單次」會變成「本卷」
+      if (viewChapter !== 1) {
+        shouldAutoPlayRef.current = isPlaying;
+        setViewChapter(1);
+      }
+      showToast(`已啟用本卷循環：從第 1 ${chapterUnit}唸到第 ${selectedBook.chaptersCount} ${chapterUnit}，結束後又從第 1 ${chapterUnit}開始重新循環`);
+    } else if (scope === 'CHAPTER') {
+      setIsBookmarkConstrained(false);
+      isBookmarkConstrainedRef.current = false;
+      setStartChapter(viewChapter);
+      setEndChapter(viewChapter);
+      setReadingMode('CHAPTERS');
+      setCustomVerseNumbers(undefined);
+      setStartVerseNum(1);
+      setEndVerseNum(999);
+      showToast(`已啟用本章循環：持續循環朗讀第 ${viewChapter} ${chapterUnit}`);
+    } else if (scope === 'VERSES') {
+      let targetVerses: number[] = [];
+      if (verses && verses.length > 0) {
+        targetVerses = [...verses].sort((a, b) => a - b);
+      } else if (underlinedVerseNums.length > 0) {
+        targetVerses = [...underlinedVerseNums].sort((a, b) => a - b);
+      } else if (customVerseNumbers && customVerseNumbers.length > 0) {
+        targetVerses = [...customVerseNumbers].sort((a, b) => a - b);
+      } else {
+        targetVerses = [1];
+      }
+
+      setCustomVerseNumbers(targetVerses);
+      setUnderlinedVerseNums(targetVerses);
+      setReadingMode('VERSES');
+      setStartVerseNum(Math.min(...targetVerses));
+      setEndVerseNum(Math.max(...targetVerses));
+      setCurrentVerseIndex(0);
+      showToast(`已啟用特定節循環：第 ${targetVerses.join(', ')} 節由語音合成（TTS）持續循環朗讀`);
+    }
+  };
+
   // TTS Speech for a given verse index (used in Verse mode and KJV/LSG)
   const speakVerse = useCallback(
     (index: number) => {
@@ -1074,8 +1145,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
         }
 
         if (isInfiniteLoopRef.current) {
-          // 若受書籤約束或單章循環：絕不跨越此書籤以外的經文，循環重播此書籤/本章
-          if (isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
+          // 若受書籤約束或單章循環：絕不跨越此書籤/本章以外的經文，循環重播此書籤/本章
+          if (loopScopeRef.current === 'CHAPTER' || isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
             setCurrentVerseIndex(0);
             setTimeout(() => {
               speakVerse(0);
@@ -1199,8 +1270,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           }
 
           if (isInfiniteLoopRef.current) {
-            // 若受書籤約束或單章循環：絕不跨越此書籤以外的經文，循環重播此書籤/本章
-            if (isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
+            // 若受書籤約束或單章循環：絕不跨越此書籤/本章以外的經文，循環重播此書籤/本章
+            if (loopScopeRef.current === 'CHAPTER' || isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
               setCurrentVerseIndex(0);
               setTimeout(() => {
                 speakVerse(0);
@@ -1334,8 +1405,8 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
   // MP3 Ended Handler: Auto Advance or Infinite Loop
   const handleAudioEnded = () => {
     if (isInfiniteLoopRef.current) {
-      // 若是從書籤進入（或單章循環），循環只限在此書籤的章節，絕不跨越此書籤以外的經文
-      if (isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
+      // 若是本章循環（或書籤/單章循環約束），循環只限在此本章，絕不跨越至下一章
+      if (loopScopeRef.current === 'CHAPTER' || isBookmarkConstrainedRef.current || minChapterRef.current === maxChapterRef.current) {
         if (audioRef.current) {
           audioRef.current.currentTime = 0;
           audioRef.current.playbackRate = playbackSpeedRef.current;
@@ -1774,36 +1845,34 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               )}
             </button>
 
-            {/* Repeat Mode Toggle */}
+            {/* Repeat Mode Toggle -> Open Loop Mode Modal */}
             <button
-              onClick={() => {
-                const nextLoop = !isInfiniteLoop;
-                setIsInfiniteLoop(nextLoop);
-                if (nextLoop) {
-                  if (isBookmarkConstrained) {
-                    showToast('已開啟循環：只限在此書籤的經文內循環朗讀');
-                  } else {
-                    showToast('已開啟循環朗讀');
-                  }
-                } else {
-                  showToast('已切換為單次朗讀');
-                }
-              }}
+              onClick={() => setIsLoopModalOpen(true)}
               className={`w-full sm:w-auto px-1 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all cursor-pointer whitespace-nowrap ${
-                isInfiniteLoop
+                loopScope !== 'SINGLE'
                   ? 'bg-amber-400 text-black border-yellow-300 shadow-md shadow-amber-500/30'
                   : 'bg-zinc-900 border-yellow-700/50 text-amber-300 hover:bg-yellow-950 hover:border-amber-400'
               }`}
               title={
-                isInfiniteLoop
-                  ? isBookmarkConstrained
-                    ? '書籤經文循環播放中（只限此書籤經文）'
-                    : '循環播放中'
-                  : '單次播放'
+                loopScope === 'BOOK'
+                  ? '本卷書循環中（點擊設定循環模式）'
+                  : loopScope === 'CHAPTER'
+                  ? '本章循環中（點擊設定循環模式）'
+                  : loopScope === 'VERSES'
+                  ? '特定幾節循環中（點擊設定循環模式）'
+                  : '單次播放（點擊設定循環模式）'
               }
             >
               <Repeat className="w-3.5 h-3.5 shrink-0" />
-              <span>{isInfiniteLoop ? '循環' : '單次'}</span>
+              <span>
+                {loopScope === 'BOOK'
+                  ? '本卷'
+                  : loopScope === 'CHAPTER'
+                  ? '本章'
+                  : loopScope === 'VERSES'
+                  ? '特定'
+                  : '單次'}
+              </span>
             </button>
 
             {/* Bookmark Button */}
@@ -1916,6 +1985,17 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               <span className="font-bold text-[11px] sm:text-xs">
                 書籤：第 {viewChapter} {chapterUnit}
                 {isInfiniteLoop ? `（循環只限本${chapterUnit}）` : ''}
+              </span>
+            </div>
+          ) : loopScope !== 'SINGLE' ? (
+            <div className="flex items-center gap-1 text-xs bg-amber-50 border border-amber-300/80 px-2 py-0.5 rounded-lg text-amber-900 shadow-xs shrink-0 whitespace-nowrap mr-auto">
+              <Repeat className="w-3 h-3 text-amber-600 shrink-0" />
+              <span className="font-bold text-[11px] sm:text-xs">
+                {loopScope === 'BOOK'
+                  ? `本卷循環（1~${selectedBook.chaptersCount} ${chapterUnit}）`
+                  : loopScope === 'CHAPTER'
+                  ? `本章循環（第 ${viewChapter} ${chapterUnit}）`
+                  : '特定幾節循環'}
               </span>
             </div>
           ) : (
@@ -2205,6 +2285,26 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           }}
         />
       )}
+
+      {/* 朗讀循環模式設定 Modal（本卷書循環、本章循環、特定幾節循環、單次播放） */}
+      <LoopModeModal
+        isOpen={isLoopModalOpen}
+        onClose={() => setIsLoopModalOpen(false)}
+        currentLoopScope={loopScope}
+        bookName={bookName}
+        viewChapter={viewChapter}
+        totalChapters={selectedBook.chaptersCount}
+        chapterUnit={chapterUnit}
+        totalVersesInChapter={maxVersesForChapter}
+        initialSelectedVerses={
+          underlinedVerseNums.length > 0
+            ? underlinedVerseNums
+            : customVerseNumbers && customVerseNumbers.length > 0
+            ? customVerseNumbers
+            : [1]
+        }
+        onSelectLoopScope={handleSelectLoopScope}
+      />
     </div>
   );
 };
