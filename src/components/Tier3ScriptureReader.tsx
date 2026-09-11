@@ -1631,25 +1631,11 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
     return 'font-sans-pref';
   };
 
-  // Render Chapter Navigation Bar (上一章、總章數及下一章按鈕 - 確保同一列不可分行)
+  // Render Chapter Navigation Bar (上一章、章數選擇及下一章按鈕 - 統一大小並向右對齊)
   const renderChapterNavBar = (idSuffix: string = 'top') => {
-    const handleConfirmJump = (overrideVal?: string) => {
-      const raw = overrideVal !== undefined ? overrideVal : (inputValRef.current || chapterInputText);
-      const parsed = parseInt(raw.trim(), 10);
-      if (!isNaN(parsed) && parsed >= 1) {
-        handleJumpToChapter(parsed);
-      } else {
-        setChapterInputText(String(viewChapter));
-        inputValRef.current = String(viewChapter);
-      }
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-    };
-
     return (
       <div
-        className="inline-flex items-center justify-end gap-1 sm:gap-1.5 scroll-mt-48 flex-nowrap shrink-0 whitespace-nowrap select-none ml-auto"
+        className="inline-flex items-center justify-end gap-1.5 scroll-mt-48 flex-nowrap shrink-0 whitespace-nowrap select-none ml-auto"
         id={`chapter-nav-${idSuffix}`}
       >
         {/* 上一章按鈕 */}
@@ -1662,7 +1648,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             handlePrevChapter();
           }}
           disabled={viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0}
-          className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 whitespace-nowrap ${
+          className={`h-8 min-w-[76px] sm:min-w-[82px] px-2 sm:px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all shrink-0 whitespace-nowrap ${
             viewChapter <= 1 && BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) <= 0
               ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
               : 'bg-amber-50/80 border-amber-300/80 text-amber-900 hover:bg-amber-100 hover:border-amber-400 cursor-pointer shadow-xs active:scale-95'
@@ -1673,7 +1659,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
           <span className="whitespace-nowrap">上一{chapterUnit}</span>
         </button>
 
-        {/* Chapter Navigation Form Pill: input + / + 總章數 + 前往按鈕 */}
+        {/* Chapter Navigation Form Pill: input + / + 總章數 (點選開啟章節與書卷選單) */}
         <div
           onClick={() => {
             if (document.activeElement instanceof HTMLElement) {
@@ -1681,7 +1667,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             }
             setIsBookChapterModalOpen(true);
           }}
-          className="flex items-center text-xs font-mono font-bold px-1 sm:px-1.5 py-0.5 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
+          className="h-8 flex items-center text-xs font-mono font-bold px-2 sm:px-2.5 bg-amber-50/95 hover:bg-amber-100/95 border border-amber-300/90 hover:border-amber-500 rounded-lg text-amber-900 transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
           title={`點選開啟章節與書卷選單 (1~${selectedBook.chaptersCount})`}
         >
           <input
@@ -1700,29 +1686,13 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
               e.target.blur();
               setIsBookChapterModalOpen(true);
             }}
-            className="w-10 sm:w-11 h-7 sm:h-6 text-center bg-white hover:bg-amber-50 focus:bg-white text-amber-950 font-bold font-mono text-[16px] sm:text-xs px-0.5 py-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/70 [appearance:textfield] transition-all cursor-pointer shadow-inner shrink-0"
+            className="w-9 sm:w-10 h-6 text-center bg-white hover:bg-amber-50 focus:bg-white text-amber-950 font-bold font-mono text-xs px-0.5 rounded border border-amber-300 focus:border-amber-600 focus:outline-none [appearance:textfield] transition-all cursor-pointer shadow-inner shrink-0"
             title={`點選開啟章節與書卷選單 (1~${selectedBook.chaptersCount})`}
           />
-          <span className="text-amber-700/80 px-0.5 font-sans text-xs shrink-0">/</span>
+          <span className="text-amber-700/80 px-1 font-sans text-xs shrink-0">/</span>
           <span className="text-amber-900 pr-0.5 text-xs whitespace-nowrap shrink-0">
             {selectedBook.chaptersCount} {chapterUnit}
           </span>
-
-          {/* Dedicated "前往" action button on the same line */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (document.activeElement instanceof HTMLElement) {
-                document.activeElement.blur();
-              }
-              setIsBookChapterModalOpen(true);
-            }}
-            className="ml-0.5 px-1.5 sm:px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-zinc-950 font-bold text-xs shadow-xs border border-amber-500/70 cursor-pointer whitespace-nowrap active:scale-95 transition-all shrink-0 flex items-center justify-center"
-            title="開啟章節與書卷選單"
-          >
-            前往
-          </button>
         </div>
 
         {/* 下一章按鈕 */}
@@ -1738,7 +1708,7 @@ export const Tier3ScriptureReader: React.FC<Tier3ScriptureReaderProps> = ({
             viewChapter >= selectedBook.chaptersCount &&
             BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
           }
-          className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-0.5 sm:gap-1 border transition-all shrink-0 whitespace-nowrap ${
+          className={`h-8 min-w-[76px] sm:min-w-[82px] px-2 sm:px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 border transition-all shrink-0 whitespace-nowrap ${
             viewChapter >= selectedBook.chaptersCount &&
             BIBLE_BOOKS.findIndex((b) => b.id === selectedBook.id) >= BIBLE_BOOKS.length - 1
               ? 'opacity-30 border-zinc-200 text-zinc-400 cursor-not-allowed bg-zinc-50'
