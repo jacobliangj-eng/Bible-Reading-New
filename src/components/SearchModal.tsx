@@ -348,7 +348,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       >
         {/* Sticky Top Header + Search Bar (置頂在頁面最上方，隨著頁面捲動保持置頂) */}
         <div className="sticky top-0 z-30 shadow-md">
-        {/* Top Header Bar: 棕色背景、左←、中「搜索」、右「下拉式選單」 */}
+        {/* Top Header Bar: 棕色背景、左←、中「查詢」、右「下拉式選單」 */}
         <header className="bg-[#593E36] text-white h-11 px-3.5 flex items-center justify-between shrink-0 select-none shadow-sm relative">
           <button
             id="search-modal-back-btn"
@@ -368,7 +368,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             className="font-medium text-base tracking-wider text-white cursor-pointer select-none touch-manipulation"
             title="點擊執行搜尋"
           >
-            搜索
+            查詢
           </span>
 
           {/* 右上角版本下拉選單 (支援 CUV / WEB / LSG 三版本切換查詢) */}
@@ -527,7 +527,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
       {/* 查詢結果清單區 (依附件4格式排列，自然文件流滾動，手指往上滑動時瀏覽器底欄會自動縮回) */}
       <div className="flex-1 px-3.5 py-1.5 space-y-1.5 bg-[#fcf8e3]">
-        {/* 總條數標題: 共搜索到相關經文 X 條 */}
+        {/* 總條數標題: 共查詢到相關經文 X 條 */}
         {hasSearched && (
           <div className="font-bold text-stone-900 text-sm sm:text-base pt-0.5 pb-0.5">
             {isSearching ? (
@@ -536,7 +536,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 <span>正在搜尋中...</span>
               </span>
             ) : (
-              <span>共搜索到相關經文 {results.length} 條</span>
+              <span>共查詢到相關經文 {results.length} 條</span>
             )}
           </div>
         )}
