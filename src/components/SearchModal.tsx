@@ -179,7 +179,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      handleExecuteSearch(val);
+      handleExecuteSearch(val, currentVersion);
     }, 450);
   };
 
@@ -187,7 +187,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (query.trim()) {
-        handleExecuteSearch(query.trim());
+        handleExecuteSearch(query.trim(), currentVersion);
       }
       setTimeout(() => {
         inputRef.current?.focus();
@@ -223,6 +223,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       showToast('請先選擇任一筆經文');
       return;
     }
+    if (onVersionChange) {
+      onVersionChange(currentVersion);
+    }
     onJumpToScripture(target.book, target.chapter, target.verse);
     onClose();
   };
@@ -233,10 +236,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       showToast('請先選擇任一筆經文');
       return;
     }
-    const formatted = `【${selectedResult.book.name[selectedVersion] || selectedResult.book.name.CUV} ${selectedResult.chapter}:${selectedResult.verse}】${selectedResult.text}`;
+    const formatted = `【${selectedResult.book.name[currentVersion] || selectedResult.book.name.CUV} ${selectedResult.chapter}:${selectedResult.verse}】${selectedResult.text}`;
     try {
       await navigator.clipboard.writeText(formatted);
-      showToast(`已複製【${selectedResult.book.shortName[selectedVersion] || selectedResult.book.shortName.CUV} ${selectedResult.chapter}:${selectedResult.verse}】經文`);
+      showToast(`已複製【${selectedResult.book.shortName[currentVersion] || selectedResult.book.shortName.CUV} ${selectedResult.chapter}:${selectedResult.verse}】經文`);
     } catch {
       const el = document.createElement('textarea');
       el.value = formatted;
@@ -244,7 +247,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       el.select();
       document.execCommand('copy');
       document.body.removeChild(el);
-      showToast(`已複製【${selectedResult.book.shortName[selectedVersion] || selectedResult.book.shortName.CUV} ${selectedResult.chapter}:${selectedResult.verse}】經文`);
+      showToast(`已複製【${selectedResult.book.shortName[currentVersion] || selectedResult.book.shortName.CUV} ${selectedResult.chapter}:${selectedResult.verse}】經文`);
     }
   };
 
@@ -254,7 +257,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       showToast('請先選擇任一筆經文');
       return;
     }
-    const bookTitle = selectedResult.book.name[selectedVersion] || selectedResult.book.name.CUV;
+    const bookTitle = selectedResult.book.name[currentVersion] || selectedResult.book.name.CUV;
     const refStr = `${bookTitle} ${selectedResult.chapter}:${selectedResult.verse}`;
     const text = `【${refStr}】${selectedResult.text}\n— 聖經經文朗讀`;
 
@@ -362,7 +365,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
           <span
             onClick={() => {
-              handleExecuteSearch(query);
+              handleExecuteSearch(query, currentVersion);
               inputRef.current?.blur();
             }}
             className="font-medium text-base tracking-wider text-white cursor-pointer select-none touch-manipulation"
@@ -434,7 +437,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              handleExecuteSearch(query);
+              handleExecuteSearch(query, currentVersion);
               inputRef.current?.blur();
             }}
             action="#"
@@ -444,7 +447,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                handleExecuteSearch(query);
+                handleExecuteSearch(query, currentVersion);
                 inputRef.current?.blur();
               }}
               className="bg-[#6d4c41] hover:bg-[#5d4037] active:bg-[#4e342e] text-white px-3.5 py-1.5 text-sm font-medium shrink-0 flex items-center justify-center border-r border-[#8d6e63]/70 select-none touch-manipulation cursor-pointer transition-colors"
@@ -471,7 +474,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    handleExecuteSearch(query);
+                    handleExecuteSearch(query, currentVersion);
                     inputRef.current?.blur();
                   }
                 }}
@@ -484,7 +487,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     ? "輸入字詞（例如：烏鴉 或 耶穌 世人）"
                     : currentVersion === 'WEB'
                     ? "Enter words (e.g. love, light, God)"
-                    : "Entrez des mots (ex: amour, lumière, Dieu)"
+                    : "Entrez des mots ou mots-clés (ex: amour, lumière, Dieu, 烏鴉)"
                 }
                 className="w-full pl-2.5 pr-14 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
               />
@@ -512,7 +515,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 type="submit"
                 onClick={(e) => {
                   e.preventDefault();
-                  handleExecuteSearch(query);
+                  handleExecuteSearch(query, currentVersion);
                   inputRef.current?.blur();
                 }}
                 className="pr-2.5 pl-1 py-1 text-[#6d4c41] hover:text-[#4e342e] active:scale-90 transition-transform touch-manipulation cursor-pointer flex items-center justify-center"

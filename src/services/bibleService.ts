@@ -883,6 +883,7 @@ export async function searchBibleVerses(
   if (!trimmed) return [];
 
   const cleanQ = trimmed.replace(/\s+/g, ' ').trim();
+  const hasChinese = /[\u4e00-\u9fa5]/.test(cleanQ);
   let versionCode = 'unv';
   if (version === 'WEB' || version === 'KJV') {
     versionCode = 'web';
@@ -891,7 +892,7 @@ export async function searchBibleVerses(
   try {
     let data: any = null;
 
-    // 1. First try the local proxy (fast, cached, handles > 500 chunking, and normalizes '上帝' -> '　神')
+    // 1. First try the local proxy (fast, cached, handles > 500 chunking, and maps queries properly)
     try {
       const proxyUrl = `/api/bible/search?q=${encodeURIComponent(cleanQ)}&version=${encodeURIComponent(version)}`;
       const proxyRes = await fetch(proxyUrl);
@@ -899,7 +900,7 @@ export async function searchBibleVerses(
         const text = await proxyRes.text();
         if (text.startsWith('{') || text.startsWith('[')) {
           const parsed = JSON.parse(text);
-          if (Array.isArray(parsed.record)) {
+          if (Array.isArray(parsed.record) && parsed.record.length > 0) {
             data = parsed;
           }
         }
@@ -908,8 +909,79 @@ export async function searchBibleVerses(
       console.warn('[searchBibleVerses] Proxy fetch failed, trying direct:', proxyErr);
     }
 
-    // 2. Direct fetch fallback to bible.fhl.net
-    if (!data || !Array.isArray(data.record)) {
+    // 2. Direct fetch for French LSG if proxy failed or returned empty
+    if (version === 'LSG' && (!data || !Array.isArray(data.record) || data.record.length === 0)) {
+      if (!hasChinese) {
+        // Direct French text search on Bolls Life
+        try {
+          const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`);
+          if (bollsRes.ok) {
+            const list = await bollsRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              data = {
+                status: 'success',
+                record: list.slice(0, 1000).map((item: any) => ({
+                  bid: item.book,
+                  chap: item.chapter,
+                  sec: item.verse,
+                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+                })),
+              };
+            }
+          }
+        } catch (err) {
+          console.warn('[searchBibleVerses] LSG Bolls direct fetch failed:', err);
+        }
+      } else {
+        // Chinese keyword to French verses fallback
+        try {
+          const directFhlUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=unv`;
+          const fhlRes = await fetch(directFhlUrl);
+          if (fhlRes.ok) {
+            const fhlJson = await fhlRes.json();
+            if (fhlJson.status === 'success' && Array.isArray(fhlJson.record)) {
+              const candidates = fhlJson.record.slice(0, 30);
+              const frenchVerses = await Promise.all(
+                candidates.map(async (c: any) => {
+                  const bNum = Number(c.bid) || 1;
+                  const chap = Number(c.chap) || 1;
+                  const sec = Number(c.sec) || 1;
+                  try {
+                    const vRes = await fetch(`https://bolls.life/get-verse/FRLSG/${bNum}/${chap}/${sec}/`);
+                    if (vRes.ok) {
+                      const vData = await vRes.json();
+                      const txt = (vData.text || '').replace(/<[^>]*>/g, '').trim();
+                      if (txt) {
+                        return {
+                          bid: bNum,
+                          chap,
+                          sec,
+                          bible_text: txt,
+                        };
+                      }
+                    }
+                  } catch {}
+                  return null;
+                })
+              );
+              const validFrench = frenchVerses.filter(Boolean);
+              if (validFrench.length > 0) {
+                data = {
+                  status: 'success',
+                  record: validFrench,
+                  record_count: validFrench.length,
+                };
+              }
+            }
+          }
+        } catch (cnFrErr) {
+          console.warn('[searchBibleVerses] LSG Chinese-to-French direct fallback failed:', cnFrErr);
+        }
+      }
+    }
+
+    // 3. Direct fetch fallback to bible.fhl.net (ONLY for CUV or WEB, NEVER for LSG)
+    if (version !== 'LSG' && (!data || !Array.isArray(data.record))) {
       try {
         const directUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=${versionCode}`;
         const directRes = await fetch(directUrl, {
@@ -954,48 +1026,26 @@ export async function searchBibleVerses(
       }
     }
 
-    // Direct Bolls fallback for LSG or WEB if no records yet
-    if (!data || !Array.isArray(data.record) || data.record.length === 0) {
-      if (version === 'LSG') {
-        try {
-          const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`);
-          if (bollsRes.ok) {
-            const list = await bollsRes.json();
-            if (Array.isArray(list) && list.length > 0) {
-              data = {
-                status: 'success',
-                record: list.slice(0, 1000).map((item: any) => ({
-                  bid: item.book,
-                  chap: item.chapter,
-                  sec: item.verse,
-                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
-                })),
-              };
-            }
+    // 4. Direct Bolls fallback for WEB if no records yet
+    if ((version === 'WEB' || version === 'KJV') && (!data || !Array.isArray(data.record) || data.record.length === 0)) {
+      try {
+        const bollsRes = await fetch(`https://bolls.life/search/WEB/?search=${encodeURIComponent(cleanQ)}`);
+        if (bollsRes.ok) {
+          const list = await bollsRes.json();
+          if (Array.isArray(list) && list.length > 0) {
+            data = {
+              status: 'success',
+              record: list.slice(0, 1000).map((item: any) => ({
+                bid: item.book,
+                chap: item.chapter,
+                sec: item.verse,
+                bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+              })),
+            };
           }
-        } catch (err) {
-          console.warn('[searchBibleVerses] LSG Bolls direct fetch failed:', err);
         }
-      } else if (version === 'WEB' || version === 'KJV') {
-        try {
-          const bollsRes = await fetch(`https://bolls.life/search/WEB/?search=${encodeURIComponent(cleanQ)}`);
-          if (bollsRes.ok) {
-            const list = await bollsRes.json();
-            if (Array.isArray(list) && list.length > 0) {
-              data = {
-                status: 'success',
-                record: list.slice(0, 1000).map((item: any) => ({
-                  bid: item.book,
-                  chap: item.chapter,
-                  sec: item.verse,
-                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
-                })),
-              };
-            }
-          }
-        } catch (err) {
-          console.warn('[searchBibleVerses] WEB Bolls direct fetch failed:', err);
-        }
+      } catch (err) {
+        console.warn('[searchBibleVerses] WEB Bolls direct fetch failed:', err);
       }
     }
 
