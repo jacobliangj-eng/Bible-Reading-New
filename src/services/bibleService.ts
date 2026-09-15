@@ -911,72 +911,39 @@ export async function searchBibleVerses(
 
     // 2. Direct fetch for French LSG if proxy failed or returned empty
     if (version === 'LSG' && (!data || !Array.isArray(data.record) || data.record.length === 0)) {
-      if (!hasChinese) {
-        // Direct French text search on Bolls Life
-        try {
-          const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`);
-          if (bollsRes.ok) {
-            const list = await bollsRes.json();
-            if (Array.isArray(list) && list.length > 0) {
-              data = {
-                status: 'success',
-                record: list.slice(0, 1000).map((item: any) => ({
-                  bid: item.book,
-                  chap: item.chapter,
-                  sec: item.verse,
-                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
-                })),
-              };
-            }
+      if (hasChinese) {
+        return [];
+      }
+      // Direct French text search on Bolls Life
+      try {
+        const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`);
+        if (bollsRes.ok) {
+          const list = await bollsRes.json();
+          if (Array.isArray(list) && list.length > 0) {
+            const validItems = list.filter(
+              (item: any) =>
+                item &&
+                typeof item.book === 'number' &&
+                typeof item.chapter === 'number' &&
+                typeof item.verse === 'number' &&
+                typeof item.text === 'string'
+            );
+            const markedItems = validItems.filter((i: any) => i.text.includes('<mark>'));
+            const itemsToUse = markedItems.length > 0 ? markedItems : validItems;
+
+            data = {
+              status: 'success',
+              record: itemsToUse.slice(0, 1000).map((item: any) => ({
+                bid: item.book,
+                chap: item.chapter,
+                sec: item.verse,
+                bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+              })),
+            };
           }
-        } catch (err) {
-          console.warn('[searchBibleVerses] LSG Bolls direct fetch failed:', err);
         }
-      } else {
-        // Chinese keyword to French verses fallback
-        try {
-          const directFhlUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=unv`;
-          const fhlRes = await fetch(directFhlUrl);
-          if (fhlRes.ok) {
-            const fhlJson = await fhlRes.json();
-            if (fhlJson.status === 'success' && Array.isArray(fhlJson.record)) {
-              const candidates = fhlJson.record.slice(0, 30);
-              const frenchVerses = await Promise.all(
-                candidates.map(async (c: any) => {
-                  const bNum = Number(c.bid) || 1;
-                  const chap = Number(c.chap) || 1;
-                  const sec = Number(c.sec) || 1;
-                  try {
-                    const vRes = await fetch(`https://bolls.life/get-verse/FRLSG/${bNum}/${chap}/${sec}/`);
-                    if (vRes.ok) {
-                      const vData = await vRes.json();
-                      const txt = (vData.text || '').replace(/<[^>]*>/g, '').trim();
-                      if (txt) {
-                        return {
-                          bid: bNum,
-                          chap,
-                          sec,
-                          bible_text: txt,
-                        };
-                      }
-                    }
-                  } catch {}
-                  return null;
-                })
-              );
-              const validFrench = frenchVerses.filter(Boolean);
-              if (validFrench.length > 0) {
-                data = {
-                  status: 'success',
-                  record: validFrench,
-                  record_count: validFrench.length,
-                };
-              }
-            }
-          }
-        } catch (cnFrErr) {
-          console.warn('[searchBibleVerses] LSG Chinese-to-French direct fallback failed:', cnFrErr);
-        }
+      } catch (err) {
+        console.warn('[searchBibleVerses] LSG Bolls direct fetch failed:', err);
       }
     }
 

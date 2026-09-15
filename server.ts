@@ -103,48 +103,16 @@ async function startServer() {
       if (versionParam === 'LSG') {
         const hasChinese = /[\u4e00-\u9fa5]/.test(cleanQ);
 
-        // 1. Direct French/Latin search on Bolls Life (e.g. "Dieu", "amour", "lumière", "Jésus", "paix")
-        if (!hasChinese) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-            const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`, {
-              signal: controller.signal,
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json, text/plain, */*',
-              },
-            });
-            clearTimeout(timeoutId);
-            if (bollsRes.ok) {
-              const list = await bollsRes.json();
-              if (Array.isArray(list)) {
-                const records = list.slice(0, 1000).map((item: any) => ({
-                  bid: item.book,
-                  chap: item.chapter,
-                  sec: item.verse,
-                  bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
-                }));
-                return res.json({
-                  status: 'success',
-                  record_count: records.length,
-                  record: records,
-                });
-              }
-            }
-          } catch (lsgErr) {
-            console.warn('[Bible Search Proxy] Bolls LSG search failed:', lsgErr);
-          }
+        // If user searched Chinese keywords while French Segond is active, French Bible has no Chinese characters
+        if (hasChinese) {
           return res.json({ status: 'success', record_count: 0, record: [] });
         }
 
-        // 2. If user searched Chinese keywords while French version is active (e.g. "愛", "烏鴉", "起初", "神")
-        // Retrieve scripture coordinates via FHL then fetch French (LSG) verses from Bolls Life
+        // Direct French/Latin search on Bolls Life (e.g. "Dieu", "amour", "lumière", "corbeau", "Jésus", "paix")
         try {
-          const fhlUrl = `https://bible.fhl.net/json/se.php?q=${encodeURIComponent(cleanQ)}&orig=0&VERSION=unv`;
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 8000);
-          const fhlRes = await fetch(fhlUrl, {
+          const bollsRes = await fetch(`https://bolls.life/search/FRLSG/?search=${encodeURIComponent(cleanQ)}`, {
             signal: controller.signal,
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -152,47 +120,37 @@ async function startServer() {
             },
           });
           clearTimeout(timeoutId);
-          if (fhlRes.ok) {
-            const fhlJson = await fhlRes.json();
-            if (fhlJson.status === 'success' && Array.isArray(fhlJson.record)) {
-              const candidates = fhlJson.record.slice(0, 30);
-              const frenchVerses = await Promise.all(
-                candidates.map(async (c: any) => {
-                  const bNum = Number(c.bid) || 1;
-                  const chap = Number(c.chap) || 1;
-                  const sec = Number(c.sec) || 1;
-                  try {
-                    const vRes = await fetch(`https://bolls.life/get-verse/FRLSG/${bNum}/${chap}/${sec}/`, {
-                      headers: { 'Accept': 'application/json' },
-                    });
-                    if (vRes.ok) {
-                      const vData = await vRes.json();
-                      const txt = (vData.text || '').replace(/<[^>]*>/g, '').trim();
-                      if (txt) {
-                        return {
-                          bid: bNum,
-                          chap,
-                          sec,
-                          bible_text: txt,
-                        };
-                      }
-                    }
-                  } catch {}
-                  return null;
-                })
+          if (bollsRes.ok) {
+            const list = await bollsRes.json();
+            if (Array.isArray(list)) {
+              const validItems = list.filter(
+                (item: any) =>
+                  item &&
+                  typeof item.book === 'number' &&
+                  typeof item.chapter === 'number' &&
+                  typeof item.verse === 'number' &&
+                  typeof item.text === 'string'
               );
-              const validFrench = frenchVerses.filter(Boolean);
-              if (validFrench.length > 0) {
-                return res.json({
-                  status: 'success',
-                  record_count: validFrench.length,
-                  record: validFrench,
-                });
-              }
+
+              // Prioritize items containing Bolls's highlight tag <mark> if any, otherwise check text inclusion
+              const markedItems = validItems.filter((i: any) => i.text.includes('<mark>'));
+              const itemsToUse = markedItems.length > 0 ? markedItems : validItems;
+
+              const records = itemsToUse.slice(0, 1000).map((item: any) => ({
+                bid: item.book,
+                chap: item.chapter,
+                sec: item.verse,
+                bible_text: (item.text || '').replace(/<[^>]*>/g, '').trim(),
+              }));
+              return res.json({
+                status: 'success',
+                record_count: records.length,
+                record: records,
+              });
             }
           }
-        } catch (cnToFrErr) {
-          console.warn('[Bible Search Proxy] Chinese to French search failed:', cnToFrErr);
+        } catch (lsgErr) {
+          console.warn('[Bible Search Proxy] Bolls LSG search failed:', lsgErr);
         }
         return res.json({ status: 'success', record_count: 0, record: [] });
       }

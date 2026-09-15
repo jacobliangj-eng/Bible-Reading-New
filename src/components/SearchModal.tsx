@@ -487,7 +487,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                     ? "輸入字詞（例如：烏鴉 或 耶穌 世人）"
                     : currentVersion === 'WEB'
                     ? "Enter words (e.g. love, light, God)"
-                    : "Entrez des mots ou mots-clés (ex: amour, lumière, Dieu, 烏鴉)"
+                    : "Entrez des mots (ex: amour, lumière, Dieu)"
                 }
                 className="w-full pl-2.5 pr-14 py-1.5 bg-[#fcf8e3] text-stone-900 placeholder:text-stone-400 text-sm font-medium focus:outline-none"
               />
